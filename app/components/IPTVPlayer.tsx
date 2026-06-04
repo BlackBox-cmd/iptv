@@ -212,7 +212,11 @@ export default function IPTVPlayer() {
           setVolume(1.0);
         }
       }
-      video.play().catch((err) => console.warn("Play failed:", err));
+      video.play().catch((err) => {
+        if (err.name !== "AbortError") {
+          console.warn("Play failed:", err);
+        }
+      });
     } else {
       video.pause();
     }
@@ -502,12 +506,16 @@ export default function IPTVPlayer() {
                     setupUnmuteOnInteraction();
                   })
                   .catch((playErr) => {
-                    console.error("Muted autoplay failed:", playErr);
+                    if (playErr.name !== "AbortError") {
+                      console.error("Muted autoplay failed:", playErr);
+                    }
                     setPlayerStatus("playing");
                     setIsPaused(true);
                   });
               } else {
-                console.warn("Play failed:", err);
+                if (err.name !== "AbortError") {
+                  console.warn("Play failed:", err);
+                }
                 setPlayerStatus("playing");
                 setIsPaused(video.paused);
               }
@@ -564,12 +572,16 @@ export default function IPTVPlayer() {
                     setupUnmuteOnInteraction();
                   })
                   .catch((playErr) => {
-                    console.error("Native muted autoplay failed:", playErr);
+                    if (playErr.name !== "AbortError") {
+                      console.error("Native muted autoplay failed:", playErr);
+                    }
                     setPlayerStatus("playing");
                     setIsPaused(true);
                   });
               } else {
-                console.warn("Native play failed:", err);
+                if (err.name !== "AbortError") {
+                  console.warn("Native play failed:", err);
+                }
                 setPlayerStatus("playing");
                 setIsPaused(video.paused);
               }
@@ -592,7 +604,9 @@ export default function IPTVPlayer() {
 
       if (isUserClick) {
         video.play().catch((err) => {
-          console.warn("Synchronous play gesture registered:", err);
+          if (err.name !== "AbortError") {
+            console.warn("Synchronous play gesture registered:", err);
+          }
         });
       }
     },
