@@ -17,6 +17,19 @@ Web Player: https://tools.shajon.dev/iptv
 
 ---
 
+## 🌍 Live TV Channels Database
+
+If you want to use the curated, lightweight JSON-based IPTV channel database (containing 1220+ channels) in another project, you can fetch the raw file directly:
+
+```
+https://raw.githubusercontent.com/SHAJON-404/iptv/refs/heads/main/app/data/channels.json
+```
+
+> [!IMPORTANT]
+> **License & Credit Notice**: If you use this channel database or stream source list in your own projects, you **must share and display proper credit** to the original developer (**S. SHAJON**) along with a link back to this repository.
+
+---
+
 ## 🛠️ Technology Stack
 
 - **Framework**: [Next.js 16 (App Router)](https://nextjs.org/)
