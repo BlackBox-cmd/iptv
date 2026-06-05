@@ -1,12 +1,20 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 
 export default function BackgroundScene() {
   const mountRef = useRef<HTMLDivElement>(null);
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Detect mobile on mount (client-side only)
+  useEffect(() => {
+    setIsMobile(window.innerWidth < 1024);
+  }, []);
 
   useEffect(() => {
+    if (isMobile) return;
+
     const container = mountRef.current;
     if (!container) return;
 
@@ -279,7 +287,9 @@ export default function BackgroundScene() {
       renderer.domElement.remove();
       renderer.dispose();
     };
-  }, []);
+  }, [isMobile]);
+
+  if (isMobile) return null;
 
   return (
     <div
