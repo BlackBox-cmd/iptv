@@ -24,7 +24,8 @@ import {
   ShieldAlert,
   PictureInPicture,
   ChevronsLeft,
-  ChevronsRight
+  ChevronsRight,
+  Smartphone
 } from "lucide-react";
 import { FaGithub, FaTelegram, FaFacebook, FaYoutube } from "react-icons/fa6";
 
@@ -234,6 +235,9 @@ export default function IPTVPlayer() {
     };
   }, []);
 
+  // Detect mobile device
+  const isMobile = typeof window !== "undefined" && /Android|iPhone|iPad|iPod|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
   useEffect(() => {
     const handleFullscreenChange = () => {
       const isFs = !!document.fullscreenElement;
@@ -242,28 +246,31 @@ export default function IPTVPlayer() {
       // Notify BackgroundScene to pause/resume animation
       window.dispatchEvent(new CustomEvent("iptv-fullscreen", { detail: { isFullscreen: isFs } }));
 
-      // Update state synchronously so CSS classes match immediately
+      // Batch state updates
       setIsFullscreen(isFs);
       if (!isFs) {
         setIsRotated(false);
-        const orientation = window.screen?.orientation as unknown as {
-          type: string;
-          angle: number;
-          lock?: (orientation: "portrait" | "landscape" | "portrait-primary" | "portrait-secondary" | "landscape-primary" | "landscape-secondary" | "any" | "natural") => Promise<void>;
-          unlock?: () => void;
-        };
-        if (
-          window.screen &&
-          orientation &&
-          typeof orientation.unlock === "function"
-        ) {
-          orientation.unlock();
-        }
+        // Delay orientation unlock to avoid layout thrashing during exit animation
+        setTimeout(() => {
+          try {
+            const orientation = window.screen?.orientation as ScreenOrientation & {
+              lock?: (orientation: string) => Promise<void>;
+              unlock?: () => void;
+            };
+            if (orientation && typeof orientation.unlock === "function") {
+              orientation.unlock();
+            }
+          } catch {
+            // orientation.unlock() not supported
+          }
+        }, 150);
       }
     };
     document.addEventListener("fullscreenchange", handleFullscreenChange);
+    document.addEventListener("webkitfullscreenchange", handleFullscreenChange);
     return () => {
       document.removeEventListener("fullscreenchange", handleFullscreenChange);
+      document.removeEventListener("webkitfullscreenchange", handleFullscreenChange);
     };
   }, []);
 
@@ -374,28 +381,52 @@ export default function IPTVPlayer() {
     resetControlsTimeout();
   };
 
+  // Mobile rotate: toggles CSS-based landscape rotation (no Fullscreen API)
+  const handleMobileRotate = () => {
+    setIsRotated(prev => !prev);
+    resetControlsTimeout();
+  };
+
   const handleFullscreen = () => {
     const container = playerContainerRef.current;
+    const video = videoRef.current;
     if (!container) return;
+
+    // iOS Safari: use video.webkitEnterFullscreen() since div.requestFullscreen() is unsupported
+    const videoEl = video as HTMLVideoElement & {
+      webkitEnterFullscreen?: () => void;
+      webkitExitFullscreen?: () => void;
+    };
+    if (
+      !document.fullscreenElement &&
+      !container.requestFullscreen &&
+      videoEl?.webkitEnterFullscreen
+    ) {
+      videoEl.webkitEnterFullscreen();
+      resetControlsTimeout();
+      return;
+    }
+
     if (!document.fullscreenElement) {
       container
         .requestFullscreen()
         .then(() => {
-          const orientation = window.screen?.orientation as unknown as {
-            type: string;
-            angle: number;
-            lock?: (orientation: "portrait" | "landscape" | "portrait-primary" | "portrait-secondary" | "landscape-primary" | "landscape-secondary" | "any" | "natural") => Promise<void>;
-            unlock?: () => void;
-          };
-          if (
-            window.screen &&
-            orientation &&
-            typeof orientation.lock === "function"
-          ) {
-            orientation
-              .lock("landscape")
-              .catch((err) => console.warn("Auto lock landscape failed:", err));
-          }
+          // Delay orientation lock to let browser finish fullscreen animation
+          setTimeout(() => {
+            try {
+              const orientation = window.screen?.orientation as ScreenOrientation & {
+                lock?: (orientation: string) => Promise<void>;
+                unlock?: () => void;
+              };
+              if (orientation && typeof orientation.lock === "function") {
+                orientation
+                  .lock("landscape")
+                  .catch(() => { /* orientation lock not supported */ });
+              }
+            } catch {
+              // orientation API not available
+            }
+          }, 300);
         })
         .catch((err) => console.warn("Fullscreen request failed:", err));
     } else {
@@ -1285,8 +1316,7 @@ export default function IPTVPlayer() {
               onMouseMove={handleMouseMove}
               onClick={handlePlayerClick}
               onDoubleClick={handlePlayerDoubleClick}
-              style={{ willChange: "transform" }}
-              className={`bg-black shadow-2xl group ${isRotated
+              className={`bg-black shadow-2xl group transition-[width,height] duration-200 ${isRotated
                   ? "fixed z-[9999] top-1/2 left-1/2 w-[100vh] h-[100vw] -translate-x-1/2 -translate-y-1/2 rotate-90 origin-center"
                   : isFullscreen
                     ? "relative w-full h-full bg-black"
@@ -1539,6 +1569,16 @@ export default function IPTVPlayer() {
                     >
                       <RotateCw size={18} />
                     </button>
+                    {/* Mobile-only rotate button for CSS-based landscape mode */}
+                    {isMobile && (
+                      <button
+                        onClick={handleMobileRotate}
+                        className={`p-1.5 rounded-lg hover:bg-white/10 transition-colors ${isRotated ? "text-primary bg-white/10" : "text-white"}`}
+                        title={isRotated ? "Exit Landscape" : "Rotate to Landscape"}
+                      >
+                        <Smartphone size={18} className={isRotated ? "rotate-0" : "rotate-90"} />
+                      </button>
+                    )}
                     <button
                       onClick={handleFullscreen}
                       className="p-1.5 rounded-lg hover:bg-white/10 text-white transition-colors"

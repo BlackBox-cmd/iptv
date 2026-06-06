@@ -91,7 +91,7 @@ export default function WorldCupPopup({ showPopup }: WorldCupPopupProps) {
                   Broadcasting Rights
                 </span>
               </h3>
-              
+
               {/* Pulse LIVE Indicator */}
               <div className="mt-2 flex items-center justify-center gap-1.5 sm:gap-2">
                 <span className="relative flex h-1.5 w-1.5 sm:h-2 sm:w-2">
@@ -109,7 +109,7 @@ export default function WorldCupPopup({ showPopup }: WorldCupPopupProps) {
               <div className="absolute top-0 left-0 w-1.5 h-full bg-linear-to-b from-yellow-500 to-orange-500" />
               <p className="text-center sm:text-left text-xs sm:text-sm leading-relaxed text-zinc-300">
                 Bangladesh Television <span className="font-extrabold text-white">BTV</span>,{" "}
-                <span className="font-extrabold text-white">T Sports</span>, and{" "}
+                <span className="font-extrabold text-white">T Sports HD</span>, and{" "}
                 <span className="font-extrabold text-white">Somoy TV</span> have officially acquired the joint broadcasting rights to telecast the{" "}
                 <span className="font-extrabold text-yellow-400">FIFA World Cup 2026</span> live in Bangladesh.
               </p>
