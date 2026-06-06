@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import Hls from "hls.js";
 import { motion, AnimatePresence } from "motion/react";
 import {
@@ -59,6 +59,7 @@ export default function IPTVPlayer() {
   const [selectedChannel, setSelectedChannel] = useState<Channel | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
+  const [displayCount, setDisplayCount] = useState(80);
 
   // Playlist Management States
   const [playlists, setPlaylists] = useState<Playlist[]>([
@@ -1151,19 +1152,22 @@ export default function IPTVPlayer() {
     [initializeStream]
   );
 
-  const categories = [
+  const categories = useMemo(() => [
     "All",
     ...Array.from(new Set(channels.map((c) => c.group))),
-  ];
+  ], [channels]);
 
-  const filteredChannels = channels.filter((c) => {
+  const filteredChannels = useMemo(() => channels.filter((c) => {
     const matchesCategory =
       selectedCategory === "All" || c.group === selectedCategory;
     const matchesSearch = c.name
       .toLowerCase()
       .includes(searchQuery.toLowerCase());
     return matchesCategory && matchesSearch;
-  });
+  }), [channels, selectedCategory, searchQuery]);
+
+  const visibleChannels = useMemo(() => filteredChannels.slice(0, displayCount), [filteredChannels, displayCount]);
+  const hasMore = displayCount < filteredChannels.length;
 
   const getInitials = (name: string) => {
     return name
@@ -1743,7 +1747,7 @@ export default function IPTVPlayer() {
                       type="text"
                       placeholder="Search live TV..."
                       value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
+                      onChange={(e) => { setSearchQuery(e.target.value); setDisplayCount(80); }}
                       className="flex-1 bg-transparent border-none outline-none py-1.5 sm:py-2 px-2.5 sm:px-3 text-sm text-white placeholder:text-gray-500"
                     />
                   </div>
@@ -1753,7 +1757,7 @@ export default function IPTVPlayer() {
                     {categories.map((cat) => (
                       <button
                         key={cat}
-                        onClick={() => setSelectedCategory(cat)}
+                        onClick={() => { setSelectedCategory(cat); setDisplayCount(80); }}
                         className={`px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg sm:rounded-xl text-[11px] sm:text-xs font-bold whitespace-nowrap border transition-all ${selectedCategory === cat
                             ? "bg-primary border-primary text-white shadow-lg shadow-primary/20"
                             : "bg-white/5 border-white/5 text-gray-400 hover:text-white hover:bg-white/10"
@@ -1787,8 +1791,9 @@ export default function IPTVPlayer() {
                       No channels found match your filters.
                     </div>
                   ) : (
+                    <>
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                      {filteredChannels.map((chan) => {
+                      {visibleChannels.map((chan) => {
                         const isSelected = selectedChannel?.id === chan.id;
                         return (
                           <button
@@ -1837,6 +1842,20 @@ export default function IPTVPlayer() {
                         );
                       })}
                     </div>
+
+                    {/* Load More Button */}
+                    {hasMore && (
+                      <div className="flex justify-center pt-4 pb-2">
+                        <button
+                          onClick={() => setDisplayCount(prev => prev + 80)}
+                          className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-white/[0.04] border border-white/[0.06] text-xs sm:text-sm font-bold text-gray-400 hover:text-white hover:bg-white/[0.08] hover:border-white/10 transition-all active:scale-95"
+                        >
+                          <ChevronsRight size={14} className="rotate-90" />
+                          <span>Load More ({filteredChannels.length - displayCount} remaining)</span>
+                        </button>
+                      </div>
+                    )}
+                    </>
                   )}
                 </div>
               </>
