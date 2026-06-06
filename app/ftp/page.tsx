@@ -4,12 +4,8 @@ import dynamic from "next/dynamic";
 import { motion } from "motion/react";
 import { ExternalLink, Database, Network, ArrowRight } from "lucide-react";
 
-const BackgroundScene = dynamic(
-  () => import("../components/BackgroundScene"),
-  { ssr: false }
-);
-
-const Header = dynamic(() => import("../components/Header"), { ssr: false });
+import BackgroundScene from "../components/BackgroundScene";
+import Header from "../components/Header";
 
 const ftpServers = [
   {

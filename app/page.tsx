@@ -1,18 +1,8 @@
 "use client";
 
-import dynamic from "next/dynamic";
-
-const BackgroundScene = dynamic(
-  () => import("./components/BackgroundScene"),
-  { ssr: false }
-);
-
-const Header = dynamic(() => import("./components/Header"), { ssr: false });
-
-const IPTVPlayer = dynamic(
-  () => import("./components/IPTVPlayer"),
-  { ssr: false }
-);
+import BackgroundScene from "./components/BackgroundScene";
+import Header from "./components/Header";
+import IPTVPlayer from "./components/IPTVPlayer";
 
 export default function Home() {
   return (
