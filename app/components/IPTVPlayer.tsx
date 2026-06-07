@@ -1,5 +1,7 @@
 "use client";
 
+import Image from "next/image";
+
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import Hls from "hls.js";
 import { motion, AnimatePresence } from "motion/react";
@@ -1567,12 +1569,13 @@ export default function IPTVPlayer() {
                   }`}
               >
                 {selectedChannel.logo ? (
-                  /* eslint-disable-next-line @next/next/no-img-element */
-                  <img
+                  <Image
                     src={selectedChannel.logo}
                     alt={selectedChannel.name}
+                    width={56}
+                    height={56}
                     onError={(e) => {
-                      (e.target as HTMLElement).style.display = "none";
+                      (e.currentTarget as HTMLElement).style.display = "none";
                     }}
                     className="w-10 h-10 sm:w-14 sm:h-14 object-contain rounded-xl sm:rounded-2xl bg-white/5 p-0.5 sm:p-1 border border-white/10 flex-shrink-0"
                   />
@@ -1608,10 +1611,11 @@ export default function IPTVPlayer() {
               <div className="flex items-center gap-3 flex-shrink-0">
                 <div className="relative">
                   <div className="relative w-10 h-10 sm:w-12 sm:h-12 rounded-full overflow-hidden border border-white/15 shadow-md">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
+                    <Image
                       src="https://avatars.githubusercontent.com/u/171383675?v=4"
                       alt="S. SHAJON"
+                      width={48}
+                      height={48}
                       className="w-full h-full object-cover"
                     />
                   </div>
@@ -1805,12 +1809,13 @@ export default function IPTVPlayer() {
                               }`}
                           >
                             {chan.logo ? (
-                              /* eslint-disable-next-line @next/next/no-img-element */
-                              <img
+                              <Image
                                 src={chan.logo}
                                 alt={chan.name}
+                                width={40}
+                                height={40}
                                 onError={(e) => {
-                                  (e.target as HTMLElement).style.display = "none";
+                                  (e.currentTarget as HTMLElement).style.display = "none";
                                 }}
                                 className="w-9 h-9 sm:w-10 sm:h-10 object-contain rounded-lg sm:rounded-xl bg-white/5 p-0.5 border border-white/10 group-hover:scale-105 transition-transform"
                               />

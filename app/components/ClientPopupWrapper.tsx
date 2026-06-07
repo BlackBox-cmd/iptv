@@ -1,11 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import dynamic from "next/dynamic";
-
-const WorldCupPopup = dynamic(() => import("./WorldCupPopup"), {
-  ssr: false,
-});
+import WorldCupPopup from "./WorldCupPopup";
 
 interface ClientPopupWrapperProps {
   showPopup: boolean;

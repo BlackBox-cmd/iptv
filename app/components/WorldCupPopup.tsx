@@ -18,11 +18,8 @@ export default function WorldCupPopup({ showPopup }: WorldCupPopupProps) {
     // Check if user has already dismissed the popup in this session
     const isDismissed = sessionStorage.getItem("dismissed_world_cup_popup_2026");
     if (isDismissed !== "true") {
-      // Delay showing the popup slightly for a premium feel
-      const timer = setTimeout(() => {
-        setIsOpen(true);
-      }, 1000);
-      return () => clearTimeout(timer);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setIsOpen(true);
     }
   }, [showPopup]);
 
