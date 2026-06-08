@@ -23,9 +23,6 @@ const faqs = [
     answer:
       "IPTV (Internet Protocol Television) delivers television content over the internet instead of traditional terrestrial, satellite, or cable formats. This player is a web-based client that plays live streams (such as HLS .m3u8 files) directly in your browser. You can load our default channel list or import your own custom playlists.",
     icon: Tv,
-    gradient: "from-blue-600/15 via-cyan-600/10 to-blue-600/5",
-    borderHover: "hover:border-blue-500/30",
-    iconBg: "bg-blue-500/10 border-blue-500/15 text-blue-400",
   },
   {
     id: "faq-2",
@@ -33,9 +30,6 @@ const faqs = [
     answer:
       "To import a custom playlist, click on the 'Playlists Manager' tab inside the channel list section. You can either paste a public M3U URL (e.g., from GitHub) or upload a local playlist file (.m3u, .m3u8, or .json). Once imported, it will be stored securely in your browser cache and appear in the 'Your Playlists' sidebar.",
     icon: ListPlus,
-    gradient: "from-violet-600/15 via-purple-600/10 to-violet-600/5",
-    borderHover: "hover:border-violet-500/30",
-    iconBg: "bg-violet-500/10 border-violet-500/15 text-violet-400",
   },
   {
     id: "faq-3",
@@ -43,9 +37,6 @@ const faqs = [
     answer:
       "Live streams can go offline for various reasons: the stream source is temporarily overloaded, the broadcaster changed the URL, or the stream has geographical restrictions (geo-blocking). If a stream fails to load, try clicking the 'Try Reconnecting' button, or switch to a different channel.",
     icon: ShieldAlert,
-    gradient: "from-rose-600/15 via-pink-600/10 to-rose-600/5",
-    borderHover: "hover:border-rose-500/30",
-    iconBg: "bg-rose-500/10 border-rose-500/15 text-rose-400",
   },
   {
     id: "faq-4",
@@ -53,9 +44,6 @@ const faqs = [
     answer:
       "No! This IPTV player runs completely in modern web browsers (Chrome, Safari, Edge, Firefox) on mobile devices, tablets, and computers. It has a built-in custom HLS stream player, so no additional extensions or app installations are required.",
     icon: Globe,
-    gradient: "from-emerald-600/15 via-teal-600/10 to-emerald-600/5",
-    borderHover: "hover:border-emerald-500/30",
-    iconBg: "bg-emerald-500/10 border-emerald-500/15 text-emerald-400",
   },
   {
     id: "faq-5",
@@ -63,9 +51,6 @@ const faqs = [
     answer:
       "Yes, this web player is 100% free to use. We do not host any stream files or media databases. The default channel list consists of publicly available free-to-air (FTA) channels. We encourage users to only load playlist links that they have the legal right to stream.",
     icon: BookOpen,
-    gradient: "from-amber-600/15 via-yellow-600/10 to-amber-600/5",
-    borderHover: "hover:border-amber-500/30",
-    iconBg: "bg-amber-500/10 border-amber-500/15 text-amber-400",
   },
   {
     id: "faq-6",
@@ -73,9 +58,6 @@ const faqs = [
     answer:
       "For any queries, suggestions, or technical support, please contact the developer via Telegram only (@SHAJON). You can also follow our official GitHub repository (SHAJON-404/iptv) for code updates, bug reports, and new features.",
     icon: MessageCircle,
-    gradient: "from-fuchsia-600/15 via-purple-600/10 to-fuchsia-600/5",
-    borderHover: "hover:border-fuchsia-500/30",
-    iconBg: "bg-fuchsia-500/10 border-fuchsia-500/15 text-fuchsia-400",
   },
 ];
 
@@ -139,7 +121,7 @@ export default function FAQPage() {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.4, delay: idx * 0.08 }}
-                  className={`relative overflow-hidden rounded-2xl border border-white/10 sm:border-white/5 bg-gradient-to-br ${faq.gradient} backdrop-blur-md transition-all duration-300 ${faq.borderHover}`}
+                  className="relative overflow-hidden rounded-2xl border border-white/10 sm:border-white/5 bg-white/[0.015] hover:bg-white/[0.04] hover:border-primary/30 backdrop-blur-md transition-all duration-300"
                 >
                   <button
                     onClick={() => toggleFaq(faq.id)}
@@ -147,7 +129,7 @@ export default function FAQPage() {
                   >
                     <div className="flex items-center gap-3.5">
                       <div
-                        className={`p-2.5 rounded-xl border ${faq.iconBg} flex-shrink-0`}
+                        className="p-2.5 rounded-xl border border-primary/20 bg-primary/10 text-primary flex-shrink-0"
                       >
                         <IconComponent size={18} strokeWidth={2} />
                       </div>
