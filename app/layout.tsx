@@ -86,12 +86,18 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   const showPopup = process.env.SHOW_POPUP?.toLowerCase() === "true";
+  const disableWcPopup = process.env.DISABLE_WC_POPUP?.toLowerCase() === "true";
+  const disableTgPopup = process.env.DISABLE_TG_POPUP?.toLowerCase() === "true";
 
   return (
     <html lang="en" className={`${inter.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col">
         {children}
-        <ClientPopupWrapper showPopup={showPopup} />
+        <ClientPopupWrapper
+          showPopup={showPopup}
+          disableWcPopup={disableWcPopup}
+          disableTgPopup={disableTgPopup}
+        />
       </body>
     </html>
   );
