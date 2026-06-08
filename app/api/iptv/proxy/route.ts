@@ -83,7 +83,21 @@ export async function GET(request: NextRequest) {
     if (isM3U8) {
       const text = await response.text();
       const lines = text.split(/\r?\n/);
-      const proxyBaseUrl = `${origin}/api/iptv/proxy`;
+      const forwardedHost = request.headers.get("x-forwarded-host");
+      const forwardedProto = request.headers.get("x-forwarded-proto");
+      const host = request.headers.get("host");
+
+      let resolvedOrigin = origin;
+      if (forwardedProto && forwardedHost) {
+        resolvedOrigin = `${forwardedProto.split(",")[0].trim()}://${forwardedHost.split(",")[0].trim()}`;
+      } else if (host) {
+        const isHttps = request.url.startsWith("https://") || 
+                        request.headers.get("x-forwarded-ssl") === "on";
+        const proto = isHttps ? "https" : "http";
+        resolvedOrigin = `${proto}://${host.split(",")[0].trim()}`;
+      }
+
+      const proxyBaseUrl = `${resolvedOrigin}/api/iptv/proxy`;
 
       const rewrittenLines = lines.map((line) => {
         const trimmed = line.trim();
