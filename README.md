@@ -1,8 +1,18 @@
 # 📺 IPTV Player — Watch Live TV Channels
 
+<div align="center">
+
+[![Next.js](https://img.shields.io/badge/Next.js-16.2.7-000000?style=for-the-badge&logo=nextdotjs&logoColor=white)](https://nextjs.org/)
+[![React](https://img.shields.io/badge/React-19.2.4-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-v4.0.0-38B2AC?style=for-the-badge&logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
+[![Node.js](https://img.shields.io/badge/Node.js-%3E%3D_22.19.0-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)](https://nodejs.org/)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg?style=for-the-badge)](https://www.gnu.org/licenses/gpl-3.0)
+
 A modern, high-performance, and premium web-based IPTV player built with **Next.js 16**, **React 19**, and **Tailwind CSS v4**. Stream high-quality live TV channels directly from official broadcast sources with a cinematic user interface.
 
-**Web Player**: https://tv.shajon.dev
+**🌐 Live Web Player:** [tv.shajon.dev](https://tv.shajon.dev)
+
+</div>
 
 ---
 
@@ -12,7 +22,7 @@ A modern, high-performance, and premium web-based IPTV player built with **Next.
 - 🚀 **Multi-Playlist Concurrent Loading**: Automatically initiates requests for all default playlists (**Sports**, **Universal**, and **Bangla**) immediately when loading the home page. Displays channel counts instantly and sets the **Sports** playlist as selected by default.
 - 💾 **SHA-256 Hash-Based IndexedDB Cache**: Caches each default playlist in the browser using IndexedDB. On page load, it queries a lightweight `/api/iptv/channels/hash?type=...` endpoint. If unchanged, channels load instantly from cache, saving bandwidth and eliminating player lag.
 - 📂 **High-Speed BDIX FTP Portal**: An elegant `/ftp` directory showing local BDIX movie and media servers, complete with real-time online status indicators, host configurations, speed diagnostics, and instant redirection link components.
-- 👥 **Real-Time Watcher Telemetry**: Relocated from the global header to the channel list header, using a non-blocking session heartbeat endpoint to monitor active viewers concurrently.
+- 👥 **Real-Time Watcher Telemetry**: Integrated directly into the channel list header, using a non-blocking session heartbeat endpoint to monitor active viewers concurrently.
 - 🌌 **3D CSS Net Background**: A highly optimized, static 3D perspective cyber grid with deep purple and cyan radial glows and a subtle viewport mesh overlay, designed for maximum performance (0% CPU/GPU overhead) on all devices.
 - 🔍 **Interactive Channel Grid**: Filter and search through thousands of Bangla and international live TV channels in real-time. Responsive grid display dynamically adjusts for mobile, tablet, and desktop viewports.
 - ⚡ **Full Skeleton UI Loading States**: Fully unified, custom-designed pulsing skeleton templates for every card element (Player, Details, Developer Info, Total Channels, and Channel List grid) to prevent layout shifts.
@@ -23,26 +33,45 @@ A modern, high-performance, and premium web-based IPTV player built with **Next.
 
 ## 🌍 Live TV Channels Database
 
-If you want to use the curated, lightweight IPTV channel databases in another project, media player, or Android TV, you can fetch the raw files directly:
+If you want to use the curated, lightweight IPTV channel databases in another project, media player, or Android TV, you can easily copy and fetch the raw files directly:
 
 ### 🏆 Sports Playlist (240+ Channels)
-- **JSON**: `https://raw.githubusercontent.com/SHAJON-404/iptv/refs/heads/main/app/data/sports.json`
-- **M3U**: `https://raw.githubusercontent.com/SHAJON-404/iptv/refs/heads/main/app/data/sports.m3u`
+* **JSON Database Link**
+  ```text
+  https://raw.githubusercontent.com/SHAJON-404/iptv/refs/heads/main/app/data/sports.json
+  ```
+* **M3U Playlist Link**
+  ```text
+  https://raw.githubusercontent.com/SHAJON-404/iptv/refs/heads/main/app/data/sports.m3u
+  ```
 
 ### 🌍 Universal Playlist (7500+ Channels)
-- **JSON**: `https://raw.githubusercontent.com/SHAJON-404/iptv/refs/heads/main/app/data/channels.json`
-- **M3U**: `https://raw.githubusercontent.com/SHAJON-404/iptv/refs/heads/main/app/data/channels.m3u`
+* **JSON Database Link**
+  ```text
+  https://raw.githubusercontent.com/SHAJON-404/iptv/refs/heads/main/app/data/channels.json
+  ```
+* **M3U Playlist Link**
+  ```text
+  https://raw.githubusercontent.com/SHAJON-404/iptv/refs/heads/main/app/data/channels.m3u
+  ```
 
 ### 🇧🇩 Bangla Playlist (100+ Channels)
-- **JSON**: `https://raw.githubusercontent.com/SHAJON-404/iptv/refs/heads/main/app/data/bangla.json`
-- **M3U**: `https://raw.githubusercontent.com/SHAJON-404/iptv/refs/heads/main/app/data/bangla.m3u`
+* **JSON Database Link**
+  ```text
+  https://raw.githubusercontent.com/SHAJON-404/iptv/refs/heads/main/app/data/bangla.json
+  ```
+* **M3U Playlist Link**
+  ```text
+  https://raw.githubusercontent.com/SHAJON-404/iptv/refs/heads/main/app/data/bangla.m3u
+  ```
+
 
 > [!IMPORTANT]
 > **License & Credit Notice**: If you use this channel database or stream source list in your own projects, you **must share and display proper credit** to the original developer (**S. SHAJON**) along with a link back to this repository.
 
 ---
 
-## 🛠️ M3U Playlist Converter
+## ⚙️ M3U Playlist Converter
 
 The repository includes a built-in Node.js converter script that automatically scans and parses all JSON files in the data directory and outputs standard M3U playlists.
 
@@ -70,7 +99,7 @@ The repository includes a built-in Node.js converter script that automatically s
 - **Framework**: [Next.js 16 (App Router)](https://nextjs.org/)
 - **Library**: [React 19](https://react.dev/)
 - **Styling**: [Tailwind CSS v4](https://tailwindcss.com/)
-- **Animations**: [Motion](https://motion.dev/) (formerly Framer Motion)
+- **Animations**: [Motion](https://motion.dev/)
 - **Stream Engine**: [HLS.js](https://github.com/video-dev/hls.js/)
 
 ---
@@ -79,7 +108,9 @@ The repository includes a built-in Node.js converter script that automatically s
 
 ### Prerequisites
 
-Ensure you have **Node.js** (v18.x or newer) installed.
+Ensure you have **Node.js** (**v22.19.0** or newer) installed.
+> [!IMPORTANT]
+> The dependency `undici@8.4.1` requires Node.js version **v22.19.0** or higher. Lower versions will fail to build or compile.
 
 ### Installation
 
@@ -99,14 +130,22 @@ Ensure you have **Node.js** (v18.x or newer) installed.
    npm run dev
    ```
 
-4. Open [http://localhost:3000](http://localhost:3000) in your browser to view the application.
+4. Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-### Production Build
+### Production Build & Running
 
-To build the application for production:
+To build and run the application in production mode:
 ```bash
 npm run build
 npm start
+```
+
+### Docker Deployment
+
+You can deploy the application using the preconfigured multi-stage `Dockerfile` (optimized for Node.js 22):
+```bash
+docker build -t iptv-player .
+docker run -p 3000:3000 iptv-player
 ```
 
 ---
@@ -134,4 +173,7 @@ This project is open-source software licensed under the **GNU General Public Lic
 2. **Preserve Developer Attribution**: You must preserve all S. SHAJON copyright, developer profile links (GitHub, Telegram, Facebook), and licensing labels in both the user interface and code files.
 3. **No Commercial Ads or Betting/Gambling Promotions**: If you build your own IPTV player or service based on this codebase, database, or resources, you are **strictly prohibited** from integrating or displaying any form of commercial advertisements, pop-up ads, redirect ads, or betting/gambling promotions of any kind.
 
-Developed with ♥ by [S. SHAJON](https://t.me/SHAJON). Follow [GitHub Profile](https://github.com/SHAJON-404) for updates.
+---
+<div align="center">
+Developed with ♥ by <a href="https://t.me/SHAJON"><b>S. SHAJON</b></a>. Follow <a href="https://github.com/SHAJON-404"><b>GitHub Profile</b></a> for updates.
+</div>
