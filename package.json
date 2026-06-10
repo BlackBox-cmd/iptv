@@ -27,14 +27,15 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.7",
+    "postcss-preset-env": "^11.3.0",
     "tailwindcss": "^4",
     "typescript": "^5"
   },
   "browserslist": [
-    "Chrome >= 100",
+    "Chrome >= 80",
     "Safari >= 15",
-    "Firefox >= 100",
-    "Edge >= 100"
+    "Firefox >= 80",
+    "Edge >= 80"
   ],
   "overrides": {
     "postcss": "^8.5.15"

@@ -1,6 +1,15 @@
 const config = {
   plugins: {
     "@tailwindcss/postcss": {},
+    "postcss-preset-env": {
+      stage: 2,
+      features: {
+        "oklab-function": true,
+        "color-function": true,
+        "nesting-rules": true,
+      },
+      browsers: "Chrome >= 80, Safari >= 15, Firefox >= 100, Edge >= 80",
+    },
   },
 };
 

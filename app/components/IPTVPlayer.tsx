@@ -972,6 +972,11 @@ export default function IPTVPlayer() {
       setPlayerStatus("loading");
       loadedUrlRef.current = chan.url;
 
+      // Fully reset video element to clear stale state (fixes Firefox)
+      video.pause();
+      video.removeAttribute("src");
+      video.load();
+
       if (isUserClick) {
         if (!userMutedRef.current) {
           video.muted = false;
@@ -994,6 +999,44 @@ export default function IPTVPlayer() {
         hlsRef.current = null;
       }
 
+      // Helper: attempt play with muted fallback chain (handles Firefox strict autoplay)
+      const attemptPlay = () => {
+        video
+          .play()
+          .then(() => {
+            setPlayerStatus("playing");
+            setIsPaused(false);
+          })
+          .catch((err) => {
+            if (err.name === "NotAllowedError") {
+              // Autoplay blocked — retry muted
+              video.muted = true;
+              setIsMuted(true);
+              video
+                .play()
+                .then(() => {
+                  setPlayerStatus("playing");
+                  setIsPaused(false);
+                  setupUnmuteOnInteraction();
+                })
+                .catch((playErr) => {
+                  if (playErr.name !== "AbortError") {
+                    console.error("Muted autoplay also failed:", playErr);
+                  }
+                  // Final fallback: show paused state with play button
+                  setPlayerStatus("playing");
+                  setIsPaused(true);
+                });
+            } else {
+              if (err.name !== "AbortError") {
+                console.warn("Play failed:", err);
+              }
+              setPlayerStatus("playing");
+              setIsPaused(video.paused);
+            }
+          });
+      };
+
       if (Hls.isSupported()) {
         const hls = new Hls({
           enableWorker: true,
@@ -1012,39 +1055,7 @@ export default function IPTVPlayer() {
             setIsPaused(false);
             return;
           }
-
-          video
-            .play()
-            .then(() => {
-              setPlayerStatus("playing");
-              setIsPaused(false);
-            })
-            .catch((err) => {
-              if (err.name === "NotAllowedError") {
-                video.muted = true;
-                setIsMuted(true);
-                video
-                  .play()
-                  .then(() => {
-                    setPlayerStatus("playing");
-                    setIsPaused(false);
-                    setupUnmuteOnInteraction();
-                  })
-                  .catch((playErr) => {
-                    if (playErr.name !== "AbortError") {
-                      console.error("Muted autoplay failed:", playErr);
-                    }
-                    setPlayerStatus("playing");
-                    setIsPaused(true);
-                  });
-              } else {
-                if (err.name !== "AbortError") {
-                  console.warn("Play failed:", err);
-                }
-                setPlayerStatus("playing");
-                setIsPaused(video.paused);
-              }
-            });
+          attemptPlay();
         });
 
         hls.on(Hls.Events.ERROR, (_event: string, data: { fatal: boolean; type: string }) => {
@@ -1079,39 +1090,7 @@ export default function IPTVPlayer() {
             setIsPaused(false);
             return;
           }
-
-          video
-            .play()
-            .then(() => {
-              setPlayerStatus("playing");
-              setIsPaused(false);
-            })
-            .catch((err) => {
-              if (err.name === "NotAllowedError") {
-                video.muted = true;
-                setIsMuted(true);
-                video
-                  .play()
-                  .then(() => {
-                    setPlayerStatus("playing");
-                    setIsPaused(false);
-                    setupUnmuteOnInteraction();
-                  })
-                  .catch((playErr) => {
-                    if (playErr.name !== "AbortError") {
-                      console.error("Native muted autoplay failed:", playErr);
-                    }
-                    setPlayerStatus("playing");
-                    setIsPaused(true);
-                  });
-              } else {
-                if (err.name !== "AbortError") {
-                  console.warn("Native play failed:", err);
-                }
-                setPlayerStatus("playing");
-                setIsPaused(video.paused);
-              }
-            });
+          attemptPlay();
         };
 
         const onError = (e: Event) => {
@@ -1128,13 +1107,8 @@ export default function IPTVPlayer() {
         setPlayerStatus("error");
       }
 
-      if (isUserClick) {
-        video.play().catch((err) => {
-          if (err.name !== "AbortError") {
-            console.warn("Synchronous play gesture registered:", err);
-          }
-        });
-      }
+      // Note: play() is handled inside MANIFEST_PARSED / onLoadedMetadata callbacks.
+      // A premature play() here would race with HLS.js and break Firefox.
     },
     [setupUnmuteOnInteraction]
   );
