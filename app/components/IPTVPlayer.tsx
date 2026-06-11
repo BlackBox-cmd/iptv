@@ -117,7 +117,9 @@ export default function IPTVPlayer() {
   const unmuteCleanupRef = useRef<(() => void) | null>(null);
 
   // Quality Selection States
-  const [hlsLevels, setHlsLevels] = useState<{ id: number; name: string }[]>([]);
+  const [qualityOptions, setQualityOptions] = useState<{ id: number; name: string }[]>([
+    { id: -1, name: "Auto" },
+  ]);
   const [currentLevel, setCurrentLevel] = useState<number>(-1);
   const [showQualityMenu, setShowQualityMenu] = useState(false);
   const [liveQualityHeight, setLiveQualityHeight] = useState<number | null>(null);
@@ -459,10 +461,43 @@ export default function IPTVPlayer() {
   };
 
   const handleQualityChange = (levelId: number) => {
-    if (hlsRef.current) {
-      hlsRef.current.currentLevel = levelId;
+    const hls = hlsRef.current;
+    const dash = dashRef.current;
+
+    if (hls) {
+      hls.currentLevel = levelId;
       setCurrentLevel(levelId);
       setShowQualityMenu(false);
+      resetControlsTimeout();
+      return;
+    }
+
+    if (dash) {
+      const player = dash as {
+        configure?: (config: Record<string, unknown>) => void;
+        getVariantTracks?: () => Array<{ id: number; active?: boolean; height?: number; bandwidth?: number }>;
+        selectVariantTrack?: (
+          track: { id: number },
+          clearBuffer?: boolean,
+          safeMargin?: number
+        ) => void;
+      };
+
+      if (levelId === -1) {
+        player.configure?.({ abr: { enabled: true } });
+        setCurrentLevel(-1);
+      } else {
+        const track = player.getVariantTracks?.().find((variant) => variant.id === levelId);
+        if (track) {
+          player.configure?.({ abr: { enabled: false } });
+          player.selectVariantTrack?.(track, true);
+          setCurrentLevel(levelId);
+          setLiveQualityHeight(track.height ?? null);
+        }
+      }
+
+      setShowQualityMenu(false);
+      resetControlsTimeout();
     }
   };
 
@@ -1241,7 +1276,7 @@ export default function IPTVPlayer() {
       setPlayerStatus("loading");
       loadedUrlRef.current = chan.url;
 
-      setHlsLevels([]);
+      setQualityOptions([{ id: -1, name: "Auto" }]);
       setCurrentLevel(-1);
       setLiveQualityHeight(null);
       setShowQualityMenu(false);
@@ -1411,6 +1446,26 @@ export default function IPTVPlayer() {
               return;
             }
 
+            const variantTracks =
+              player.getVariantTracks?.() || [];
+            const variantOptions = variantTracks.map(
+              (track: { id: number; height?: number | null; bandwidth?: number | null }) => ({
+                id: track.id,
+                name: track.height
+                  ? `${track.height}p`
+                  : track.bandwidth
+                    ? `${Math.round(track.bandwidth / 1000)}k`
+                    : `Track ${track.id}`,
+              })
+            );
+            setQualityOptions([{ id: -1, name: "Auto" }, ...variantOptions]);
+
+            const activeTrack =
+              variantTracks.find((track: { active?: boolean }) => track.active) ||
+              variantTracks[0];
+            setCurrentLevel(-1);
+            setLiveQualityHeight(activeTrack?.height ?? null);
+
             attemptPlay();
           } catch (err: unknown) {
             if (loadedUrlRef.current !== chan.url) return; // stale, ignore
@@ -1448,7 +1503,7 @@ export default function IPTVPlayer() {
             id: index,
             name: level.name || (level.height ? `${level.height}p` : `${Math.round(level.bitrate / 1000)}k`),
           }));
-          setHlsLevels([{ id: -1, name: "Auto" }, ...levelsList]);
+          setQualityOptions([{ id: -1, name: "Auto" }, ...levelsList]);
           setCurrentLevel(hls.currentLevel);
 
           if (!video.paused) {
@@ -1952,8 +2007,8 @@ export default function IPTVPlayer() {
 
                   {/* Right controls */}
                   <div className="flex items-center gap-2 relative">
-                    {/* Quality Selector (HLS only) */}
-                    {hlsLevels.length > 1 && (
+                    {/* Quality Selector */}
+                    {qualityOptions.length > 0 && (
                       <div className="relative" ref={qualityMenuRef}>
                         <button
                           onClick={(e) => {
@@ -1969,7 +2024,7 @@ export default function IPTVPlayer() {
                               ? liveQualityHeight
                                 ? `Auto (${liveQualityHeight}p)`
                                 : "Auto"
-                              : hlsLevels.find((l) => l.id === currentLevel)?.name || "Quality"}
+                              : qualityOptions.find((l) => l.id === currentLevel)?.name || "Quality"}
                           </span>
                         </button>
 
@@ -1982,10 +2037,10 @@ export default function IPTVPlayer() {
                               className="absolute bottom-full right-0 mb-2.5 w-32 bg-[#0c0824]/98 border border-white/10 rounded-2xl overflow-hidden shadow-2xl z-50 backdrop-blur-md py-1"
                             >
                               <div className="text-[10px] text-zinc-400 font-black uppercase tracking-widest px-3 py-1.5 border-b border-white/5 select-none">
-                                Quality
+                                Resolution
                               </div>
                               <div className="max-h-48 overflow-y-auto custom-scrollbar">
-                                {hlsLevels.map((lvl) => {
+                                {qualityOptions.map((lvl) => {
                                   const isSelected = currentLevel === lvl.id;
                                   return (
                                     <button
