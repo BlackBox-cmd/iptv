@@ -1,8 +1,8 @@
 import { MetadataRoute } from "next";
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = "https://tv.shajon.dev";
-  
+  const baseUrl = "https://iptv.freakcloud.tk";
+
   return [
     {
       url: baseUrl,

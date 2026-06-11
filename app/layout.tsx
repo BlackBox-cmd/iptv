@@ -8,7 +8,7 @@ const inter = Inter({
   subsets: ["latin"],
 });
 
-const siteUrl = "https://tv.shajon.dev";
+const siteUrl = "https://iptv.freakcloud.tk";
 
 export const viewport: Viewport = {
   width: "device-width",
