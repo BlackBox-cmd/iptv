@@ -82,6 +82,8 @@ export default function IPTVPlayer() {
   const [playlistTab, setPlaylistTab] = useState<"browse" | "manage">("browse");
   const [importUrl, setImportUrl] = useState("");
   const [playlistName, setPlaylistName] = useState("");
+  const [uploadPlaylistName, setUploadPlaylistName] = useState("");
+  const [isDragging, setIsDragging] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -985,10 +987,7 @@ export default function IPTVPlayer() {
   };
 
   // Custom playlist handlers
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
+  const processFile = (file: File) => {
     setImportError(null);
     const reader = new FileReader();
     reader.onload = (event) => {
@@ -1006,7 +1005,7 @@ export default function IPTVPlayer() {
           throw new Error("No channels could be parsed from this file.");
         }
 
-        const name = file.name.replace(/\.[^/.]+$/, "");
+        const name = uploadPlaylistName.trim() || file.name.replace(/\.[^/.]+$/, "");
         const newPlaylist: Playlist = {
           id: `playlist-${Date.now()}`,
           name: name,
@@ -1017,6 +1016,7 @@ export default function IPTVPlayer() {
         setPlaylists(prev => [...prev, newPlaylist]);
         setActivePlaylistId(newPlaylist.id);
         setPlaylistTab("browse");
+        setUploadPlaylistName("");
         if (fileInputRef.current) fileInputRef.current.value = "";
       } catch (err) {
         setImportError(
@@ -1030,6 +1030,33 @@ export default function IPTVPlayer() {
       setImportError("Error reading file.");
     };
     reader.readAsText(file);
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    processFile(file);
+  };
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (!file) return;
+    processFile(file);
   };
 
   const handleUrlImport = async (e: React.FormEvent) => {
