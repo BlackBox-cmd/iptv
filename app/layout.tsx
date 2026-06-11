@@ -64,7 +64,7 @@ export const metadata: Metadata = {
       "Stream 6500+ live TV channels from Bangladesh, India, and worldwide. Premium IPTV web player with HLS streaming, custom playlist support, and a modern UI.",
     images: [
       {
-        url: "/og-image.png",
+        url: "/iptv-cover.png",
         width: 1200,
         height: 630,
         alt: "IPTV Player — Live TV streaming with 6500+ channels",
