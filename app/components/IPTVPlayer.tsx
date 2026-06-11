@@ -4,6 +4,9 @@ import Image from "next/image";
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import Hls from "hls.js";
+// dashjs is loaded dynamically because it requires `window` (browser-only)
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type DashMediaPlayer = any;
 import { motion, AnimatePresence } from "motion/react";
 import {
   Tv,
@@ -39,6 +42,9 @@ interface Channel {
   logo: string;
   group: string;
   url: string;
+  type?: "dash" | "hls";
+  kid?: string;
+  key?: string;
 }
 
 interface Playlist {
@@ -118,6 +124,7 @@ export default function IPTVPlayer() {
   const qualityMenuRef = useRef<HTMLDivElement>(null);
 
   const hlsRef = useRef<Hls | null>(null);
+  const dashRef = useRef<DashMediaPlayer | null>(null);
   const userMutedRef = useRef(false);
   const isMutedRef = useRef(isMuted);
   const volumeRef = useRef(volume);
@@ -1049,6 +1056,9 @@ export default function IPTVPlayer() {
     url?: string;
     streamUrl?: string;
     link?: string;
+    type?: "dash" | "hls";
+    kid?: string;
+    key?: string;
   }
 
   const parseJSON = (text: string): Channel[] => {
@@ -1066,6 +1076,9 @@ export default function IPTVPlayer() {
         logo: ch.logo || ch.logoUrl || ch.image || "",
         group: ch.group || ch.category || "Custom",
         url: url,
+        ...(ch.type && { type: ch.type }),
+        ...(ch.kid && { kid: ch.kid }),
+        ...(ch.key && { key: ch.key }),
       };
     });
   };
@@ -1260,6 +1273,11 @@ export default function IPTVPlayer() {
         hlsRef.current = null;
       }
 
+      if (dashRef.current) {
+        dashRef.current.destroy().catch(() => {});
+        dashRef.current = null;
+      }
+
       // Helper: attempt play with muted fallback chain (handles Firefox strict autoplay)
       const attemptPlay = () => {
         video
@@ -1298,7 +1316,122 @@ export default function IPTVPlayer() {
           });
       };
 
-      if (Hls.isSupported()) {
+      // Detect if this is a DASH stream
+      const isDash = chan.type === "dash" || chan.url.endsWith(".mpd");
+
+      if (isDash) {
+        // --- DASH playback via Shaka Player with ClearKey DRM ---
+        // Mirrors the working implementation in test/1.html exactly
+        (async () => {
+          try {
+            // Dynamically load Shaka Player from node module (browser-only, needs window)
+            const shakaModule = await import("shaka-player");
+            const shaka = shakaModule.default || shakaModule;
+
+            // Guard: bail if user switched channels while module was loading
+            if (loadedUrlRef.current !== chan.url) return;
+
+            shaka.polyfill.installAll();
+
+            if (!shaka.Player.isBrowserSupported()) {
+              setError("Your browser does not support DASH playback.");
+              setPlayerStatus("error");
+              return;
+            }
+
+            const player = new shaka.Player();
+            dashRef.current = player;
+            await player.attach(video);
+
+            // Live stream tuning — mirrors test/1.html config (excluding removed gap configurations in Shaka v4+)
+            player.configure({
+              manifest: {
+                defaultPresentationDelay: 8,
+                ignoreDrmInfo: true,
+                dash: { ignoreMinBufferTime: true, ignoreSuggestedPresentationDelay: true, autoCorrectDrift: true },
+              },
+              streaming: {
+                bufferingGoal: 10,
+                rebufferingGoal: 0.8,
+                bufferBehind: 12,
+                stallEnabled: true,
+                stallThreshold: 1,
+                stallSkip: 0.15,
+                retryParameters: { maxAttempts: 12, baseDelay: 500, backoffFactor: 1.6, fuzzFactor: 0.35, timeout: 15000 },
+              },
+              abr: {
+                enabled: true,
+                defaultBandwidthEstimate: 4500000,
+                switchInterval: 1,
+                clearBufferSwitch: false,
+                restrictToElementSize: true,
+                restrictToScreenSize: true,
+                bandwidthDowngradeTarget: 0.92,
+                bandwidthUpgradeTarget: 0.72,
+              },
+            });
+
+            // ClearKey DRM — Shaka takes raw hex kid/key directly (no base64 conversion)
+            if (chan.kid && chan.key) {
+              player.configure({
+                drm: {
+                  clearKeys: {
+                    [String(chan.kid).toLowerCase()]: String(chan.key).toLowerCase(),
+                  },
+                },
+              });
+            }
+
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            player.addEventListener("error", (event: any) => {
+              const detail = event?.detail;
+              console.error("[SHAKA] DASH error detail:", JSON.stringify(detail));
+              const code = detail?.code ?? "";
+              let errorMsg = "DASH stream error" + (code ? " • Code: " + code : "");
+              if (code === 6020) {
+                errorMsg += " • Missing browser DRM/EME support. If accessing over a local network IP (e.g. http://192.168.x.x), EME is blocked by Chrome/browsers. Please use http://localhost:3000 or configure HTTPS.";
+              }
+              setPlayerStatus("error");
+              setError(errorMsg);
+            });
+
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            player.addEventListener("buffering", (event: any) => {
+              if (!event.buffering) {
+                setPlayerStatus("playing");
+                setIsPaused(false);
+              }
+            });
+
+            await player.load(chan.url);
+
+            // Guard again after async load
+            if (loadedUrlRef.current !== chan.url) {
+              await player.destroy().catch(() => {});
+              return;
+            }
+
+            attemptPlay();
+          } catch (err: unknown) {
+            if (loadedUrlRef.current !== chan.url) return; // stale, ignore
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const errObj = err as any;
+            let errMsg = "DASH / MPD load failed";
+            if (errObj) {
+              if (errObj.code) errMsg += ` (Code: ${errObj.code})`;
+              if (errObj.category) errMsg += ` (Category: ${errObj.category})`;
+              if (errObj.severity) errMsg += ` (Severity: ${errObj.severity})`;
+              if (errObj.message) errMsg += ` - ${errObj.message}`;
+              if (errObj.code === 6020) {
+                errMsg += " • Missing browser DRM/EME support. If accessing over a local network IP (e.g. http://192.168.x.x), EME is blocked by Chrome/browsers. Please use http://localhost:3000 or configure HTTPS.";
+              }
+            }
+            console.error("[SHAKA] Load error detail:", JSON.stringify(errObj), errMsg);
+            setError(errMsg);
+            setPlayerStatus("error");
+          }
+        })();
+      } else if (Hls.isSupported()) {
         const hls = new Hls({
           enableWorker: true,
           lowLatencyMode: true,
@@ -1375,7 +1508,7 @@ export default function IPTVPlayer() {
         });
         video.addEventListener("error", onError, { once: true });
       } else {
-        setError("Your browser does not support HLS stream playback.");
+        setError("Your browser does not support stream playback.");
         setPlayerStatus("error");
       }
 
@@ -1401,6 +1534,10 @@ export default function IPTVPlayer() {
       if (hlsRef.current) {
         hlsRef.current.destroy();
         hlsRef.current = null;
+      }
+      if (dashRef.current) {
+        dashRef.current.destroy().catch(() => {});
+        dashRef.current = null;
       }
       if (video) {
         video.src = "";
