@@ -10,8 +10,6 @@
 
 A modern, high-performance, and premium web-based IPTV player built with **Next.js 16**, **React 19**, and **Tailwind CSS v4**. Stream high-quality live TV channels directly from official broadcast sources with a cinematic user interface.
 
-**🌐 Live Web Player:** [tv.shajon.dev](https://tv.shajon.dev)
-
 </div>
 
 ---
@@ -36,48 +34,63 @@ A modern, high-performance, and premium web-based IPTV player built with **Next.
 If you want to use the curated, lightweight IPTV channel databases in another project, media player, or Android TV, you can easily copy and fetch the raw files directly:
 
 ### 🏆 Sports Playlist (240+ Channels)
-* **JSON Database Link**
+
+- **JSON Database Link**
+
   ```text
   https://raw.githubusercontent.com/SHAJON-404/iptv/refs/heads/main/app/data/sports.json
   ```
-* **M3U Playlist Link**
+
+- **M3U Playlist Link**
+
   ```text
   https://raw.githubusercontent.com/SHAJON-404/iptv/refs/heads/main/app/data/sports.m3u
   ```
 
 ### 🌍 Universal Playlist (7500+ Channels)
-* **JSON Database Link**
+
+- **JSON Database Link**
+
   ```text
   https://raw.githubusercontent.com/SHAJON-404/iptv/refs/heads/main/app/data/channels.json
   ```
-* **M3U Playlist Link**
+
+- **M3U Playlist Link**
+
   ```text
   https://raw.githubusercontent.com/SHAJON-404/iptv/refs/heads/main/app/data/channels.m3u
   ```
 
 ### 🇧🇩 Bangla Playlist (100+ Channels)
-* **JSON Database Link**
+
+- **JSON Database Link**
+
   ```text
   https://raw.githubusercontent.com/SHAJON-404/iptv/refs/heads/main/app/data/bangla.json
   ```
-* **M3U Playlist Link**
+
+- **M3U Playlist Link**
+
   ```text
   https://raw.githubusercontent.com/SHAJON-404/iptv/refs/heads/main/app/data/bangla.m3u
   ```
 
 ### ⚽ FIFA Playlist (7 Channels)
-* **JSON Database Link**
+
+- **JSON Database Link**
+
   ```text
   https://raw.githubusercontent.com/SHAJON-404/iptv/refs/heads/main/app/data/fifa.json
   ```
-* **M3U Playlist Link**
+
+- **M3U Playlist Link**
+
   ```text
   https://raw.githubusercontent.com/SHAJON-404/iptv/refs/heads/main/app/data/fifa.m3u
   ```
 
-
 > [!IMPORTANT]
-> **License & Credit Notice**: If you use this channel database or stream source list in your own projects, you **must share and display proper credit** to the original developer (**S. SHAJON**) along with a link back to this repository.
+> **License & Credit Notice**: If you use this channel database or stream source list in your own projects, you **must share and display proper credit** to the original developer (**Kallan Biswas**) along with a link back to this repository.
 
 ---
 
@@ -88,16 +101,20 @@ The repository includes a built-in Node.js converter script that automatically s
 ### Usage
 
 1. **Convert All Playlists** (Converts all `.json` files in `app/data/` to `.m3u`):
+
    ```bash
    npm run convert-m3u
    ```
+
    *Or run it directly:*
+
    ```bash
    node scripts/json-to-m3u.js
    ```
 
 2. **Custom Paths**:
    If you have a custom JSON database or want to output to a specific location:
+
    ```bash
    node scripts/json-to-m3u.js <path-to-input.json> <path-to-output.m3u>
    ```
@@ -125,17 +142,20 @@ Ensure you have **Node.js** (**v22.19.0** or newer) installed.
 ### Installation
 
 1. Clone this repository:
+
    ```bash
-   git clone https://github.com/SHAJON-404/iptv.git
+   git clone https://github.com/BlackBox-cmd/iptv.git
    cd iptv
    ```
 
 2. Install the dependencies:
+
    ```bash
    npm install
    ```
 
 3. Run the development server:
+
    ```bash
    npm run dev
    ```
@@ -145,6 +165,7 @@ Ensure you have **Node.js** (**v22.19.0** or newer) installed.
 ### Production Build & Running
 
 To build and run the application in production mode:
+
 ```bash
 npm run build
 npm start
@@ -153,6 +174,7 @@ npm start
 ### Docker Deployment
 
 You can deploy the application using the preconfigured multi-stage `Dockerfile` (optimized for Node.js 22):
+
 ```bash
 docker build -t iptv-player .
 docker run -p 3000:3000 iptv-player
@@ -178,12 +200,13 @@ Special thanks to all IPTV open-source repository maintainers and contributors w
 
 This project is open-source software licensed under the **GNU General Public License v3 (GPLv3)**.
 
-### Open Source Compliance Guidelines:
+### Open Source Compliance Guidelines
+
 1. **Copyleft Protection & Mandatory Open Source**: You are free to use, modify, and build upon everything in this repository, but any derivative player, application, or database **MUST remain fully open-source** and distributed under the same GPLv3 license.
-2. **Preserve Developer Attribution**: You must preserve all S. SHAJON copyright, developer profile links (GitHub, Telegram, Facebook), and licensing labels in both the user interface and code files.
+2. **Preserve Developer Attribution**: You must preserve all Kallan Biswas copyright, developer profile links (GitHub, Telegram, Facebook), and licensing labels in both the user interface and code files.
 3. **No Commercial Ads or Betting/Gambling Promotions**: If you build your own IPTV player or service based on this codebase, database, or resources, you are **strictly prohibited** from integrating or displaying any form of commercial advertisements, pop-up ads, redirect ads, or betting/gambling promotions of any kind.
 
 ---
 <div align="center">
-Developed with ♥ by <a href="https://t.me/SHAJON"><b>S. SHAJON</b></a>. Follow <a href="https://github.com/SHAJON-404"><b>GitHub Profile</b></a> for updates.
+Developed with ♥ by <a href="https://t.me/SHAJON"><b>Kallan Biswas</b></a>. Follow <a href="https://github.com/BlackBox-cmd"><b>GitHub Profile</b></a> for updates.
 </div>

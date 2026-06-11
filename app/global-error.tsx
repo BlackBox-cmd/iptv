@@ -78,10 +78,10 @@ export default function GlobalError({
             </div>
             <div className="flex items-center gap-2">
               <span className="flex items-center px-3 py-1.5 rounded-xl bg-white/[0.03] border border-white/[0.08] text-[10px] sm:text-xs text-zinc-300 font-medium whitespace-nowrap shadow-sm">
-                Developed by <span className="text-white font-bold ml-1">S. SHAJON</span>
+                Developed by <span className="text-white font-bold ml-1">Kallan Biswas</span>
               </span>
               <a
-                href="https://github.com/SHAJON-404/iptv"
+                href="https://github.com/BlackBox-cmd/iptv"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/[0.05] hover:bg-white/[0.09] border border-white/[0.08] hover:border-white/[0.18] text-[10px] sm:text-xs text-gray-300 hover:text-white font-semibold transition-all duration-300 shadow-sm whitespace-nowrap"

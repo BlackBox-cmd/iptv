@@ -39,9 +39,9 @@ export const metadata: Metadata = {
     "m3u player",
     "web TV player",
   ],
-  authors: [{ name: "S. SHAJON", url: "https://github.com/SHAJON-404" }],
-  creator: "S. SHAJON",
-  publisher: "S. SHAJON",
+  authors: [{ name: "Kallan Biswas", url: "https://github.com/BlackBox-cmd" }],
+  creator: "Kallan Biswas",
+  publisher: "Kallan Biswas",
   metadataBase: new URL(siteUrl),
   alternates: {
     canonical: "/",

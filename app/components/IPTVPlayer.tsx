@@ -1718,8 +1718,8 @@ export default function IPTVPlayer() {
                 <div className="relative">
                   <div className="relative w-10 h-10 sm:w-12 sm:h-12 rounded-full overflow-hidden border border-white/15 shadow-md">
                     <Image
-                      src="https://avatars.githubusercontent.com/u/171383675?v=4"
-                      alt="S. SHAJON"
+                      src="https://github.com/BlackBox-cmd.png"
+                      alt="Kallan Biswas"
                       width={48}
                       height={48}
                       className="w-full h-full object-cover"
@@ -1729,11 +1729,11 @@ export default function IPTVPlayer() {
                 </div>
                 <div className="flex flex-col">
                   <h3 className="text-base sm:text-lg font-black text-white leading-tight">
-                    S. SHAJON
+                    Kallan Biswas
                   </h3>
                   <div className="flex items-center gap-3 mt-1.5">
                     <a
-                      href="https://github.com/SHAJON-404"
+                      href="https://github.com/BlackBox-cmd"
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-zinc-300 hover:text-white transition-colors"
@@ -1742,31 +1742,13 @@ export default function IPTVPlayer() {
                       <FaGithub size={18} />
                     </a>
                     <a
-                      href="https://t.me/SHAJON"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-zinc-300 hover:text-[#26A5E4] transition-colors"
-                      title="Telegram"
-                    >
-                      <FaTelegram size={18} />
-                    </a>
-                    <a
-                      href="https://www.facebook.com/shahmakhdumshajonofficial"
+                      href="https://www.facebook.com/Kallan.Biswas.92/"
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-zinc-300 hover:text-[#1877F2] transition-colors"
                       title="Facebook"
                     >
                       <FaFacebook size={18} />
-                    </a>
-                    <a
-                      href="https://youtube.com/@SHAJON-404"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-zinc-300 hover:text-[#FF0000] transition-colors"
-                      title="YouTube"
-                    >
-                      <FaYoutube size={18} />
                     </a>
                   </div>
                 </div>
@@ -1777,7 +1759,7 @@ export default function IPTVPlayer() {
 
               {/* Right block: Support details */}
               <p className="text-[10px] sm:text-[10.5px] leading-normal text-zinc-400 font-medium select-text flex-1 pl-1 min-w-[120px]">
-                For any support, contact via <a href="https://t.me/SHAJON" target="_blank" rel="noopener noreferrer" className="text-[#26A5E4] font-bold hover:underline">Telegram only</a>. Follow GitHub for updates!
+                For any support, contact via <a href="https://www.facebook.com/Kallan.Biswas.92/" target="_blank" rel="noopener noreferrer" className="text-[#1877F2] font-bold hover:underline">Facebook</a>. Follow GitHub for updates!
               </p>
             </div>
 
@@ -2166,10 +2148,10 @@ export default function IPTVPlayer() {
               <div className="flex items-center gap-2">
                 <span className="flex items-center px-3 py-1.5 rounded-xl bg-white/[0.03] border border-white/[0.08] text-[10px] sm:text-xs text-zinc-300 font-medium whitespace-nowrap shadow-sm">
                   Developed by{" "}
-                  <span className="text-white font-bold ml-1">S. SHAJON</span>
+                  <span className="text-white font-bold ml-1">Kallan Biswas</span>
                 </span>
                 <a
-                  href="https://github.com/SHAJON-404/iptv"
+                  href="https://github.com/BlackBox-cmd/iptv"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/[0.05] hover:bg-white/[0.09] border border-white/[0.08] hover:border-white/[0.18] text-[10px] sm:text-xs text-gray-300 hover:text-white font-semibold transition-all duration-300 shadow-sm whitespace-nowrap"
