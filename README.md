@@ -25,7 +25,7 @@ A modern, high-performance, and premium web-based IPTV player built with **Next.
 - 🔍 **Interactive Channel Grid**: Filter and search through thousands of Bangla and international live TV channels in real-time. Responsive grid display dynamically adjusts for mobile, tablet, and desktop viewports.
 - ⚡ **Full Skeleton UI Loading States**: Fully unified, custom-designed pulsing skeleton templates for every card element (Player, Details, Developer Info, Total Channels, and Channel List grid) to prevent layout shifts.
 - 🧭 **Glassmorphic Sticky Header**: A clean, luxurious sticky header with brand identification and active live broadcast status.
-- 📢 **Telegram Announcement Popup**: A beautiful announcement modal prompting users to join the official Telegram channel (`t.me/shajonOTT`) for updates, stream status notifications, and channel requests. Includes a developer-mode bypass for easier testing.
+- 📢 **Telegram Announcement Popup**: A beautiful announcement modal prompting users to join the official Telegram channel (`t.me/FreakCloud`) for updates, stream status notifications, and channel requests. Includes a developer-mode bypass for easier testing.
 
 ---
 
