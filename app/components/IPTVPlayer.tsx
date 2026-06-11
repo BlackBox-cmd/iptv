@@ -28,7 +28,8 @@ import {
   ChevronsLeft,
   ChevronsRight,
   List,
-  X
+  X,
+  Settings
 } from "lucide-react";
 import { FaGithub, FaTelegram, FaFacebook, FaYoutube } from "react-icons/fa6";
 
@@ -106,6 +107,13 @@ export default function IPTVPlayer() {
   const controlsShownAtRef = useRef<number>(0);
   const unmuteCleanupRef = useRef<(() => void) | null>(null);
 
+  // Quality Selection States
+  const [hlsLevels, setHlsLevels] = useState<{ id: number; name: string }[]>([]);
+  const [currentLevel, setCurrentLevel] = useState<number>(-1);
+  const [showQualityMenu, setShowQualityMenu] = useState(false);
+  const [liveQualityHeight, setLiveQualityHeight] = useState<number | null>(null);
+  const qualityMenuRef = useRef<HTMLDivElement>(null);
+
   const hlsRef = useRef<Hls | null>(null);
   const userMutedRef = useRef(false);
   const isMutedRef = useRef(isMuted);
@@ -168,6 +176,38 @@ export default function IPTVPlayer() {
     volumeRef.current = volume;
   }, [volume]);
 
+  // Load saved volume settings from localStorage (client-side only)
+  useEffect(() => {
+    const savedVolume = localStorage.getItem("iptv-volume");
+    const savedMuted = localStorage.getItem("iptv-muted");
+    if (savedVolume !== null) {
+      const vol = parseFloat(savedVolume);
+      setVolume(vol);
+      volumeRef.current = vol;
+    }
+    if (savedMuted !== null) {
+      const muted = savedMuted === "true";
+      setIsMuted(muted);
+      isMutedRef.current = muted;
+      userMutedRef.current = muted;
+    }
+  }, []);
+
+  // Quality menu click outside listener
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (qualityMenuRef.current && !qualityMenuRef.current.contains(e.target as Node)) {
+        setShowQualityMenu(false);
+      }
+    };
+    if (showQualityMenu) {
+      document.addEventListener("mousedown", handleOutsideClick);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideClick);
+    };
+  }, [showQualityMenu]);
+
   // YouTube-like Double Tap Seek State
   const [activeSeekIndicator, setActiveSeekIndicator] = useState<{
     side: "left" | "right";
@@ -206,9 +246,14 @@ export default function IPTVPlayer() {
       if (v && v.muted) {
         v.muted = false;
         setIsMuted(false);
-        if (v.volume === 0) {
-          v.volume = 1.0;
-          setVolume(1.0);
+        const savedVolume = localStorage.getItem("iptv-volume");
+        if (savedVolume !== null) {
+          const vol = parseFloat(savedVolume);
+          v.volume = vol === 0 ? 0.8 : vol;
+          setVolume(v.volume);
+        } else if (v.volume === 0) {
+          v.volume = 0.8;
+          setVolume(0.8);
         }
       }
       cleanup();
@@ -343,13 +388,16 @@ export default function IPTVPlayer() {
     if (video.muted) {
       video.muted = false;
       userMutedRef.current = false;
+      localStorage.setItem("iptv-muted", "false");
       if (video.volume === 0) {
         video.volume = 1.0;
         setVolume(1.0);
+        localStorage.setItem("iptv-volume", "1.0");
       }
     } else {
       video.muted = true;
       userMutedRef.current = true;
+      localStorage.setItem("iptv-muted", "true");
     }
     resetControlsTimeout();
   };
@@ -362,14 +410,25 @@ export default function IPTVPlayer() {
     const newVol = parseFloat(e.target.value);
     video.volume = newVol;
     setVolume(newVol);
+    localStorage.setItem("iptv-volume", newVol.toString());
     if (newVol > 0) {
       video.muted = false;
       userMutedRef.current = false;
+      localStorage.setItem("iptv-muted", "false");
     } else {
       video.muted = true;
       userMutedRef.current = true;
+      localStorage.setItem("iptv-muted", "true");
     }
     resetControlsTimeout();
+  };
+
+  const handleQualityChange = (levelId: number) => {
+    if (hlsRef.current) {
+      hlsRef.current.currentLevel = levelId;
+      setCurrentLevel(levelId);
+      setShowQualityMenu(false);
+    }
   };
 
 
@@ -1058,6 +1117,11 @@ export default function IPTVPlayer() {
       setPlayerStatus("loading");
       loadedUrlRef.current = chan.url;
 
+      setHlsLevels([]);
+      setCurrentLevel(-1);
+      setLiveQualityHeight(null);
+      setShowQualityMenu(false);
+
       // Fully reset video element to clear stale state (fixes Firefox)
       video.pause();
       video.removeAttribute("src");
@@ -1136,12 +1200,23 @@ export default function IPTVPlayer() {
         hls.loadSource(playableUrl);
 
         hls.on(Hls.Events.MANIFEST_PARSED, () => {
+          const levelsList = hls.levels.map((level, index) => ({
+            id: index,
+            name: level.name || (level.height ? `${level.height}p` : `${Math.round(level.bitrate / 1000)}k`),
+          }));
+          setHlsLevels([{ id: -1, name: "Auto" }, ...levelsList]);
+          setCurrentLevel(hls.currentLevel);
+
           if (!video.paused) {
             setPlayerStatus("playing");
             setIsPaused(false);
             return;
           }
           attemptPlay();
+        });
+
+        hls.on(Hls.Events.LEVEL_SWITCHED, (_event, data) => {
+          setLiveQualityHeight(hls.levels[data.level]?.height || null);
         });
 
         hls.on(Hls.Events.ERROR, (_event: string, data: { fatal: boolean; type: string }) => {
@@ -1628,7 +1703,67 @@ export default function IPTVPlayer() {
                   </div>
 
                   {/* Right controls */}
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 relative">
+                    {/* Quality Selector (HLS only) */}
+                    {hlsLevels.length > 1 && (
+                      <div className="relative" ref={qualityMenuRef}>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setShowQualityMenu((prev) => !prev);
+                          }}
+                          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-white/5 bg-white/[0.03] hover:bg-white/[0.08] hover:border-white/10 text-white text-xs font-bold transition-all shadow-sm ${showQualityMenu ? "bg-white/[0.08] border-primary/30" : ""}`}
+                          title="Quality / Resolution"
+                        >
+                          <Settings size={14} className={`transition-transform duration-300 ${showQualityMenu ? "rotate-45 text-primary" : ""}`} />
+                          <span>
+                            {currentLevel === -1
+                              ? liveQualityHeight
+                                ? `Auto (${liveQualityHeight}p)`
+                                : "Auto"
+                              : hlsLevels.find((l) => l.id === currentLevel)?.name || "Quality"}
+                          </span>
+                        </button>
+
+                        <AnimatePresence>
+                          {showQualityMenu && (
+                            <motion.div
+                              initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                              animate={{ opacity: 1, y: 0, scale: 1 }}
+                              exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                              className="absolute bottom-full right-0 mb-2.5 w-32 bg-[#0c0824]/98 border border-white/10 rounded-2xl overflow-hidden shadow-2xl z-50 backdrop-blur-md py-1"
+                            >
+                              <div className="text-[10px] text-zinc-400 font-black uppercase tracking-widest px-3 py-1.5 border-b border-white/5 select-none">
+                                Quality
+                              </div>
+                              <div className="max-h-48 overflow-y-auto custom-scrollbar">
+                                {hlsLevels.map((lvl) => {
+                                  const isSelected = currentLevel === lvl.id;
+                                  return (
+                                    <button
+                                      key={lvl.id}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleQualityChange(lvl.id);
+                                      }}
+                                      className={`w-full text-left px-3 py-2 text-xs font-bold transition-colors flex items-center justify-between ${
+                                        isSelected
+                                          ? "text-primary bg-primary/10"
+                                          : "text-zinc-300 hover:text-white hover:bg-white/5"
+                                      }`}
+                                    >
+                                      <span>{lvl.name}</span>
+                                      {isSelected && <Check size={12} className="text-primary stroke-[3]" />}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
+                    )}
+
                     {isPipSupported && (
                       <button
                         onClick={handlePip}
