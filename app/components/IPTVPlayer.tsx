@@ -96,6 +96,7 @@ export default function IPTVPlayer() {
   const playerWrapperRef = useRef<HTMLDivElement>(null);
   const playerContainerRef = useRef<HTMLDivElement>(null);
   const [retryKey, setRetryKey] = useState(0);
+  const nativeFullscreenRef = useRef(false);
 
   // Custom Player controls states
   const [isPaused, setIsPaused] = useState(true);
@@ -122,6 +123,38 @@ export default function IPTVPlayer() {
   const volumeRef = useRef(volume);
   const loadedUrlRef = useRef<string | null>(null);
   const [viewerCount, setViewerCount] = useState<number | null>(null);
+
+  const syncFullscreenState = useCallback(
+    (isFs: boolean, source: "document" | "native" = "document") => {
+      isFullscreenRef.current = isFs;
+      nativeFullscreenRef.current = source === "native" ? isFs : false;
+
+      // Notify BackgroundScene to pause/resume animation.
+      window.dispatchEvent(
+        new CustomEvent("iptv-fullscreen", { detail: { isFullscreen: isFs } })
+      );
+
+      setIsFullscreen(isFs);
+
+      if (!isFs) {
+        // Delay orientation unlock to avoid layout thrashing during exit animation.
+        setTimeout(() => {
+          try {
+            const orientation = window.screen?.orientation as ScreenOrientation & {
+              lock?: (orientation: string) => Promise<void>;
+              unlock?: () => void;
+            };
+            if (orientation && typeof orientation.unlock === "function") {
+              orientation.unlock();
+            }
+          } catch {
+            // orientation.unlock() not supported
+          }
+        }, 150);
+      }
+    },
+    []
+  );
 
   useEffect(() => {
     // Generate or retrieve session ID from sessionStorage
@@ -300,38 +333,31 @@ export default function IPTVPlayer() {
 
   useEffect(() => {
     const handleFullscreenChange = () => {
-      const isFs = !!document.fullscreenElement;
-      isFullscreenRef.current = isFs;
-
-      // Notify BackgroundScene to pause/resume animation
-      window.dispatchEvent(new CustomEvent("iptv-fullscreen", { detail: { isFullscreen: isFs } }));
-
-      // Batch state updates
-      setIsFullscreen(isFs);
-      if (!isFs) {
-        // Delay orientation unlock to avoid layout thrashing during exit animation
-        setTimeout(() => {
-          try {
-            const orientation = window.screen?.orientation as ScreenOrientation & {
-              lock?: (orientation: string) => Promise<void>;
-              unlock?: () => void;
-            };
-            if (orientation && typeof orientation.unlock === "function") {
-              orientation.unlock();
-            }
-          } catch {
-            // orientation.unlock() not supported
-          }
-        }, 150);
-      }
+      syncFullscreenState(!!document.fullscreenElement, "document");
     };
+
+    const handleNativeFullscreenEnter = () => {
+      syncFullscreenState(true, "native");
+    };
+
+    const handleNativeFullscreenExit = () => {
+      syncFullscreenState(false, "native");
+    };
+
     document.addEventListener("fullscreenchange", handleFullscreenChange);
     document.addEventListener("webkitfullscreenchange", handleFullscreenChange);
+
+    const video = videoRef.current;
+    video?.addEventListener("webkitbeginfullscreen", handleNativeFullscreenEnter);
+    video?.addEventListener("webkitendfullscreen", handleNativeFullscreenExit);
+
     return () => {
       document.removeEventListener("fullscreenchange", handleFullscreenChange);
       document.removeEventListener("webkitfullscreenchange", handleFullscreenChange);
+      video?.removeEventListener("webkitbeginfullscreen", handleNativeFullscreenEnter);
+      video?.removeEventListener("webkitendfullscreen", handleNativeFullscreenExit);
     };
-  }, []);
+  }, [syncFullscreenState, selectedChannel, retryKey]);
 
 
 
@@ -435,53 +461,111 @@ export default function IPTVPlayer() {
 
 
 
-  const handleFullscreen = () => {
+  const handleFullscreen = async () => {
     const container = playerContainerRef.current;
     const video = videoRef.current;
-    if (!container) return;
+    if (!container || !video) return;
 
-    // iOS Safari: use video.webkitEnterFullscreen() since div.requestFullscreen() is unsupported
+    const containerEl = container as HTMLElement & {
+      webkitRequestFullscreen?: (
+        options?: FullscreenOptions
+      ) => Promise<void> | void;
+    };
+
     const videoEl = video as HTMLVideoElement & {
       webkitEnterFullscreen?: () => void;
       webkitExitFullscreen?: () => void;
     };
-    if (
-      !document.fullscreenElement &&
-      !container.requestFullscreen &&
-      videoEl?.webkitEnterFullscreen
-    ) {
-      videoEl.webkitEnterFullscreen();
+
+    if (nativeFullscreenRef.current) {
+      if (typeof videoEl.webkitExitFullscreen === "function") {
+        videoEl.webkitExitFullscreen();
+      } else if (document.fullscreenElement) {
+        try {
+          await document.exitFullscreen();
+        } catch (err) {
+          console.warn("Exit fullscreen failed:", err);
+        }
+      } else {
+        syncFullscreenState(false, "native");
+      }
       resetControlsTimeout();
       return;
     }
 
-    if (!document.fullscreenElement) {
-      container
-        .requestFullscreen()
-        .then(() => {
-          // Delay orientation lock to let browser finish fullscreen animation
-          setTimeout(() => {
-            try {
-              const orientation = window.screen?.orientation as ScreenOrientation & {
-                lock?: (orientation: string) => Promise<void>;
-                unlock?: () => void;
-              };
-              if (orientation && typeof orientation.lock === "function") {
-                orientation
-                  .lock("landscape")
-                  .catch(() => { /* orientation lock not supported */ });
-              }
-            } catch {
-              // orientation API not available
-            }
-          }, 300);
-        })
-        .catch((err) => console.warn("Fullscreen request failed:", err));
-    } else {
-      document
-        .exitFullscreen()
-        .catch((err) => console.warn("Exit fullscreen failed:", err));
+    if (document.fullscreenElement) {
+      try {
+        await document.exitFullscreen();
+      } catch (err) {
+        console.warn("Exit fullscreen failed:", err);
+      }
+      resetControlsTimeout();
+      return;
     }
+
+    const isIosDevice =
+      typeof navigator !== "undefined" &&
+      (/iPad|iPhone|iPod/.test(navigator.userAgent) ||
+        (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1));
+
+    if (isIosDevice && typeof videoEl.webkitEnterFullscreen === "function") {
+      try {
+        videoEl.webkitEnterFullscreen();
+        syncFullscreenState(true, "native");
+      } catch (err) {
+        console.warn("Native fullscreen request failed:", err);
+      }
+      resetControlsTimeout();
+      return;
+    }
+
+    const requestFullscreen =
+      containerEl.requestFullscreen?.bind(containerEl) ??
+      containerEl.webkitRequestFullscreen?.bind(containerEl);
+
+    if (requestFullscreen) {
+      try {
+        await Promise.resolve(
+          requestFullscreen({ navigationUI: "hide" } as FullscreenOptions)
+        );
+        setTimeout(() => {
+          try {
+            const orientation = window.screen?.orientation as ScreenOrientation & {
+              lock?: (orientation: string) => Promise<void>;
+              unlock?: () => void;
+            };
+            if (orientation && typeof orientation.lock === "function") {
+              orientation.lock("landscape").catch(() => {
+                /* orientation lock not supported */
+              });
+            }
+          } catch {
+            // orientation API not available
+          }
+        }, 300);
+      } catch (err) {
+        console.warn("Fullscreen request failed:", err);
+        if (typeof videoEl.webkitEnterFullscreen === "function") {
+          try {
+            videoEl.webkitEnterFullscreen();
+            syncFullscreenState(true, "native");
+          } catch (nativeErr) {
+            console.warn("Native fullscreen fallback failed:", nativeErr);
+          }
+        }
+      }
+    } else if (typeof videoEl.webkitEnterFullscreen === "function") {
+      try {
+        videoEl.webkitEnterFullscreen();
+        syncFullscreenState(true, "native");
+      } catch (err) {
+        console.warn("Native fullscreen request failed:", err);
+      }
+    } else {
+      console.warn("Fullscreen is not supported on this device/browser.");
+    }
+
+    // Keep the control timeout aligned even when the fullscreen request is ignored.
     resetControlsTimeout();
   };
 
