@@ -10,7 +10,7 @@
 
 A modern, high-performance, and premium web-based IPTV player built with **Next.js 16**, **React 19**, and **Tailwind CSS v4**. Stream high-quality live TV channels directly from official broadcast sources with a cinematic user interface.
 
-**🌐 Live Web Player:** [tv.shajon.dev](https://tv.shajon.dev)
+**🌐 Live Web Player:** [iptv.freakcloud.tk](https://iptv.freakcloud.tk/)
 
 </div>
 
