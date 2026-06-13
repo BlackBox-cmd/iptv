@@ -31,7 +31,8 @@ import {
   ChevronsLeft,
   ChevronsRight,
   List,
-  X
+  X,
+  Settings
 } from "lucide-react";
 import { FaGithub, FaTelegram, FaFacebook, FaYoutube } from "react-icons/fa6";
 
@@ -101,6 +102,7 @@ export default function IPTVPlayer() {
   const playerWrapperRef = useRef<HTMLDivElement>(null);
   const playerContainerRef = useRef<HTMLDivElement>(null);
   const [retryKey, setRetryKey] = useState(0);
+  const nativeFullscreenRef = useRef(false);
 
   // Custom Player controls states
   const [isPaused, setIsPaused] = useState(true);
@@ -114,6 +116,15 @@ export default function IPTVPlayer() {
   const controlsShownAtRef = useRef<number>(0);
   const unmuteCleanupRef = useRef<(() => void) | null>(null);
 
+  // Quality Selection States
+  const [qualityOptions, setQualityOptions] = useState<{ id: number; name: string }[]>([
+    { id: -1, name: "Auto" },
+  ]);
+  const [currentLevel, setCurrentLevel] = useState<number>(-1);
+  const [showQualityMenu, setShowQualityMenu] = useState(false);
+  const [liveQualityHeight, setLiveQualityHeight] = useState<number | null>(null);
+  const qualityMenuRef = useRef<HTMLDivElement>(null);
+
   const hlsRef = useRef<Hls | null>(null);
   const dashRef = useRef<DashMediaPlayer | null>(null);
   const userMutedRef = useRef(false);
@@ -121,6 +132,38 @@ export default function IPTVPlayer() {
   const volumeRef = useRef(volume);
   const loadedUrlRef = useRef<string | null>(null);
   const [viewerCount, setViewerCount] = useState<number | null>(null);
+
+  const syncFullscreenState = useCallback(
+    (isFs: boolean, source: "document" | "native" = "document") => {
+      isFullscreenRef.current = isFs;
+      nativeFullscreenRef.current = source === "native" ? isFs : false;
+
+      // Notify BackgroundScene to pause/resume animation.
+      window.dispatchEvent(
+        new CustomEvent("iptv-fullscreen", { detail: { isFullscreen: isFs } })
+      );
+
+      setIsFullscreen(isFs);
+
+      if (!isFs) {
+        // Delay orientation unlock to avoid layout thrashing during exit animation.
+        setTimeout(() => {
+          try {
+            const orientation = window.screen?.orientation as ScreenOrientation & {
+              lock?: (orientation: string) => Promise<void>;
+              unlock?: () => void;
+            };
+            if (orientation && typeof orientation.unlock === "function") {
+              orientation.unlock();
+            }
+          } catch {
+            // orientation.unlock() not supported
+          }
+        }, 150);
+      }
+    },
+    []
+  );
 
   useEffect(() => {
     // Generate or retrieve session ID from sessionStorage
@@ -177,6 +220,38 @@ export default function IPTVPlayer() {
     volumeRef.current = volume;
   }, [volume]);
 
+  // Load saved volume settings from localStorage (client-side only)
+  useEffect(() => {
+    const savedVolume = localStorage.getItem("iptv-volume");
+    const savedMuted = localStorage.getItem("iptv-muted");
+    if (savedVolume !== null) {
+      const vol = parseFloat(savedVolume);
+      setVolume(vol);
+      volumeRef.current = vol;
+    }
+    if (savedMuted !== null) {
+      const muted = savedMuted === "true";
+      setIsMuted(muted);
+      isMutedRef.current = muted;
+      userMutedRef.current = muted;
+    }
+  }, []);
+
+  // Quality menu click outside listener
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (qualityMenuRef.current && !qualityMenuRef.current.contains(e.target as Node)) {
+        setShowQualityMenu(false);
+      }
+    };
+    if (showQualityMenu) {
+      document.addEventListener("mousedown", handleOutsideClick);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideClick);
+    };
+  }, [showQualityMenu]);
+
   // YouTube-like Double Tap Seek State
   const [activeSeekIndicator, setActiveSeekIndicator] = useState<{
     side: "left" | "right";
@@ -215,9 +290,14 @@ export default function IPTVPlayer() {
       if (v && v.muted) {
         v.muted = false;
         setIsMuted(false);
-        if (v.volume === 0) {
-          v.volume = 1.0;
-          setVolume(1.0);
+        const savedVolume = localStorage.getItem("iptv-volume");
+        if (savedVolume !== null) {
+          const vol = parseFloat(savedVolume);
+          v.volume = vol === 0 ? 0.8 : vol;
+          setVolume(v.volume);
+        } else if (v.volume === 0) {
+          v.volume = 0.8;
+          setVolume(0.8);
         }
       }
       cleanup();
@@ -262,38 +342,31 @@ export default function IPTVPlayer() {
 
   useEffect(() => {
     const handleFullscreenChange = () => {
-      const isFs = !!document.fullscreenElement;
-      isFullscreenRef.current = isFs;
-
-      // Notify BackgroundScene to pause/resume animation
-      window.dispatchEvent(new CustomEvent("iptv-fullscreen", { detail: { isFullscreen: isFs } }));
-
-      // Batch state updates
-      setIsFullscreen(isFs);
-      if (!isFs) {
-        // Delay orientation unlock to avoid layout thrashing during exit animation
-        setTimeout(() => {
-          try {
-            const orientation = window.screen?.orientation as ScreenOrientation & {
-              lock?: (orientation: string) => Promise<void>;
-              unlock?: () => void;
-            };
-            if (orientation && typeof orientation.unlock === "function") {
-              orientation.unlock();
-            }
-          } catch {
-            // orientation.unlock() not supported
-          }
-        }, 150);
-      }
+      syncFullscreenState(!!document.fullscreenElement, "document");
     };
+
+    const handleNativeFullscreenEnter = () => {
+      syncFullscreenState(true, "native");
+    };
+
+    const handleNativeFullscreenExit = () => {
+      syncFullscreenState(false, "native");
+    };
+
     document.addEventListener("fullscreenchange", handleFullscreenChange);
     document.addEventListener("webkitfullscreenchange", handleFullscreenChange);
+
+    const video = videoRef.current;
+    video?.addEventListener("webkitbeginfullscreen", handleNativeFullscreenEnter);
+    video?.addEventListener("webkitendfullscreen", handleNativeFullscreenExit);
+
     return () => {
       document.removeEventListener("fullscreenchange", handleFullscreenChange);
       document.removeEventListener("webkitfullscreenchange", handleFullscreenChange);
+      video?.removeEventListener("webkitbeginfullscreen", handleNativeFullscreenEnter);
+      video?.removeEventListener("webkitendfullscreen", handleNativeFullscreenExit);
     };
-  }, []);
+  }, [syncFullscreenState, selectedChannel, retryKey]);
 
 
 
@@ -352,13 +425,16 @@ export default function IPTVPlayer() {
     if (video.muted) {
       video.muted = false;
       userMutedRef.current = false;
+      localStorage.setItem("iptv-muted", "false");
       if (video.volume === 0) {
         video.volume = 1.0;
         setVolume(1.0);
+        localStorage.setItem("iptv-volume", "1.0");
       }
     } else {
       video.muted = true;
       userMutedRef.current = true;
+      localStorage.setItem("iptv-muted", "true");
     }
     resetControlsTimeout();
   };
@@ -371,65 +447,167 @@ export default function IPTVPlayer() {
     const newVol = parseFloat(e.target.value);
     video.volume = newVol;
     setVolume(newVol);
+    localStorage.setItem("iptv-volume", newVol.toString());
     if (newVol > 0) {
       video.muted = false;
       userMutedRef.current = false;
+      localStorage.setItem("iptv-muted", "false");
     } else {
       video.muted = true;
       userMutedRef.current = true;
+      localStorage.setItem("iptv-muted", "true");
     }
     resetControlsTimeout();
   };
 
+  const handleQualityChange = (levelId: number) => {
+    const hls = hlsRef.current;
+    const dash = dashRef.current;
 
-
-  const handleFullscreen = () => {
-    const container = playerContainerRef.current;
-    const video = videoRef.current;
-    if (!container) return;
-
-    // iOS Safari: use video.webkitEnterFullscreen() since div.requestFullscreen() is unsupported
-    const videoEl = video as HTMLVideoElement & {
-      webkitEnterFullscreen?: () => void;
-      webkitExitFullscreen?: () => void;
-    };
-    if (
-      !document.fullscreenElement &&
-      !container.requestFullscreen &&
-      videoEl?.webkitEnterFullscreen
-    ) {
-      videoEl.webkitEnterFullscreen();
+    if (hls) {
+      hls.currentLevel = levelId;
+      setCurrentLevel(levelId);
+      setShowQualityMenu(false);
       resetControlsTimeout();
       return;
     }
 
-    if (!document.fullscreenElement) {
-      container
-        .requestFullscreen()
-        .then(() => {
-          // Delay orientation lock to let browser finish fullscreen animation
-          setTimeout(() => {
-            try {
-              const orientation = window.screen?.orientation as ScreenOrientation & {
-                lock?: (orientation: string) => Promise<void>;
-                unlock?: () => void;
-              };
-              if (orientation && typeof orientation.lock === "function") {
-                orientation
-                  .lock("landscape")
-                  .catch(() => { /* orientation lock not supported */ });
-              }
-            } catch {
-              // orientation API not available
-            }
-          }, 300);
-        })
-        .catch((err) => console.warn("Fullscreen request failed:", err));
-    } else {
-      document
-        .exitFullscreen()
-        .catch((err) => console.warn("Exit fullscreen failed:", err));
+    if (dash) {
+      const player = dash as {
+        configure?: (config: Record<string, unknown>) => void;
+        getVariantTracks?: () => Array<{ id: number; active?: boolean; height?: number; bandwidth?: number }>;
+        selectVariantTrack?: (
+          track: { id: number },
+          clearBuffer?: boolean,
+          safeMargin?: number
+        ) => void;
+      };
+
+      if (levelId === -1) {
+        player.configure?.({ abr: { enabled: true } });
+        setCurrentLevel(-1);
+      } else {
+        const track = player.getVariantTracks?.().find((variant) => variant.id === levelId);
+        if (track) {
+          player.configure?.({ abr: { enabled: false } });
+          player.selectVariantTrack?.(track, true);
+          setCurrentLevel(levelId);
+          setLiveQualityHeight(track.height ?? null);
+        }
+      }
+
+      setShowQualityMenu(false);
+      resetControlsTimeout();
     }
+  };
+
+
+
+  const handleFullscreen = async () => {
+    const container = playerContainerRef.current;
+    const video = videoRef.current;
+    if (!container || !video) return;
+
+    const containerEl = container as HTMLElement & {
+      webkitRequestFullscreen?: (
+        options?: FullscreenOptions
+      ) => Promise<void> | void;
+    };
+
+    const videoEl = video as HTMLVideoElement & {
+      webkitEnterFullscreen?: () => void;
+      webkitExitFullscreen?: () => void;
+    };
+
+    if (nativeFullscreenRef.current) {
+      if (typeof videoEl.webkitExitFullscreen === "function") {
+        videoEl.webkitExitFullscreen();
+      } else if (document.fullscreenElement) {
+        try {
+          await document.exitFullscreen();
+        } catch (err) {
+          console.warn("Exit fullscreen failed:", err);
+        }
+      } else {
+        syncFullscreenState(false, "native");
+      }
+      resetControlsTimeout();
+      return;
+    }
+
+    if (document.fullscreenElement) {
+      try {
+        await document.exitFullscreen();
+      } catch (err) {
+        console.warn("Exit fullscreen failed:", err);
+      }
+      resetControlsTimeout();
+      return;
+    }
+
+    const isIosDevice =
+      typeof navigator !== "undefined" &&
+      (/iPad|iPhone|iPod/.test(navigator.userAgent) ||
+        (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1));
+
+    if (isIosDevice && typeof videoEl.webkitEnterFullscreen === "function") {
+      try {
+        videoEl.webkitEnterFullscreen();
+        syncFullscreenState(true, "native");
+      } catch (err) {
+        console.warn("Native fullscreen request failed:", err);
+      }
+      resetControlsTimeout();
+      return;
+    }
+
+    const requestFullscreen =
+      containerEl.requestFullscreen?.bind(containerEl) ??
+      containerEl.webkitRequestFullscreen?.bind(containerEl);
+
+    if (requestFullscreen) {
+      try {
+        await Promise.resolve(
+          requestFullscreen({ navigationUI: "hide" } as FullscreenOptions)
+        );
+        setTimeout(() => {
+          try {
+            const orientation = window.screen?.orientation as ScreenOrientation & {
+              lock?: (orientation: string) => Promise<void>;
+              unlock?: () => void;
+            };
+            if (orientation && typeof orientation.lock === "function") {
+              orientation.lock("landscape").catch(() => {
+                /* orientation lock not supported */
+              });
+            }
+          } catch {
+            // orientation API not available
+          }
+        }, 300);
+      } catch (err) {
+        console.warn("Fullscreen request failed:", err);
+        if (typeof videoEl.webkitEnterFullscreen === "function") {
+          try {
+            videoEl.webkitEnterFullscreen();
+            syncFullscreenState(true, "native");
+          } catch (nativeErr) {
+            console.warn("Native fullscreen fallback failed:", nativeErr);
+          }
+        }
+      }
+    } else if (typeof videoEl.webkitEnterFullscreen === "function") {
+      try {
+        videoEl.webkitEnterFullscreen();
+        syncFullscreenState(true, "native");
+      } catch (err) {
+        console.warn("Native fullscreen request failed:", err);
+      }
+    } else {
+      console.warn("Fullscreen is not supported on this device/browser.");
+    }
+
+    // Keep the control timeout aligned even when the fullscreen request is ignored.
     resetControlsTimeout();
   };
 
@@ -577,7 +755,7 @@ export default function IPTVPlayer() {
 
       if (saved) {
         const parsedSaved = JSON.parse(saved) as Playlist[];
-        const customPlaylists = parsedSaved.filter(p => 
+        const customPlaylists = parsedSaved.filter(p =>
           p.id !== "default" && p.id !== "sports" && p.id !== "universal" && p.id !== "bangla" && p.id !== "fifa"
         );
 
@@ -605,7 +783,7 @@ export default function IPTVPlayer() {
 
   // Save custom playlists to localStorage whenever they change
   useEffect(() => {
-    const customPlaylists = playlists.filter(p => 
+    const customPlaylists = playlists.filter(p =>
       p.id !== "default" && p.id !== "sports" && p.id !== "universal" && p.id !== "bangla" && p.id !== "fifa"
     );
     try {
@@ -1098,6 +1276,11 @@ export default function IPTVPlayer() {
       setPlayerStatus("loading");
       loadedUrlRef.current = chan.url;
 
+      setQualityOptions([{ id: -1, name: "Auto" }]);
+      setCurrentLevel(-1);
+      setLiveQualityHeight(null);
+      setShowQualityMenu(false);
+
       // Fully reset video element to clear stale state (fixes Firefox)
       video.pause();
       video.removeAttribute("src");
@@ -1263,6 +1446,26 @@ export default function IPTVPlayer() {
               return;
             }
 
+            const variantTracks =
+              player.getVariantTracks?.() || [];
+            const variantOptions = variantTracks.map(
+              (track: { id: number; height?: number | null; bandwidth?: number | null }) => ({
+                id: track.id,
+                name: track.height
+                  ? `${track.height}p`
+                  : track.bandwidth
+                    ? `${Math.round(track.bandwidth / 1000)}k`
+                    : `Track ${track.id}`,
+              })
+            );
+            setQualityOptions([{ id: -1, name: "Auto" }, ...variantOptions]);
+
+            const activeTrack =
+              variantTracks.find((track: { active?: boolean }) => track.active) ||
+              variantTracks[0];
+            setCurrentLevel(-1);
+            setLiveQualityHeight(activeTrack?.height ?? null);
+
             attemptPlay();
           } catch (err: unknown) {
             if (loadedUrlRef.current !== chan.url) return; // stale, ignore
@@ -1296,12 +1499,23 @@ export default function IPTVPlayer() {
         hls.loadSource(playableUrl);
 
         hls.on(Hls.Events.MANIFEST_PARSED, () => {
+          const levelsList = hls.levels.map((level, index) => ({
+            id: index,
+            name: level.name || (level.height ? `${level.height}p` : `${Math.round(level.bitrate / 1000)}k`),
+          }));
+          setQualityOptions([{ id: -1, name: "Auto" }, ...levelsList]);
+          setCurrentLevel(hls.currentLevel);
+
           if (!video.paused) {
             setPlayerStatus("playing");
             setIsPaused(false);
             return;
           }
           attemptPlay();
+        });
+
+        hls.on(Hls.Events.LEVEL_SWITCHED, (_event, data) => {
+          setLiveQualityHeight(hls.levels[data.level]?.height || null);
         });
 
         hls.on(Hls.Events.ERROR, (_event: string, data: { fatal: boolean; type: string }) => {
@@ -1665,8 +1879,8 @@ export default function IPTVPlayer() {
                     exit={{ opacity: 0 }}
                     transition={{ duration: 0.2 }}
                     className={`absolute inset-y-0 w-1/3 flex items-center justify-center pointer-events-none z-30 bg-white/5 ${activeSeekIndicator.side === "left"
-                        ? "left-0 rounded-r-full"
-                        : "right-0 rounded-l-full"
+                      ? "left-0 rounded-r-full"
+                      : "right-0 rounded-l-full"
                       }`}
                   >
                     {activeSeekIndicator.side === "left" ? (
@@ -1747,8 +1961,8 @@ export default function IPTVPlayer() {
               {playerStatus === "playing" && (
                 <div
                   className={`player-controls absolute bottom-0 left-0 right-0 p-3 sm:p-4 bg-gradient-to-t from-black/90 via-black/40 to-transparent flex items-center justify-between transition-all duration-300 z-20 ${showControls
-                      ? "opacity-100 translate-y-0"
-                      : "opacity-0 translate-y-2 pointer-events-none"
+                    ? "opacity-100 translate-y-0"
+                    : "opacity-0 translate-y-2 pointer-events-none"
                     }`}
                 >
                   {/* Left controls */}
@@ -1798,7 +2012,67 @@ export default function IPTVPlayer() {
                   </div>
 
                   {/* Right controls */}
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 relative">
+                    {/* Quality Selector */}
+                    {qualityOptions.length > 0 && (
+                      <div className="relative" ref={qualityMenuRef}>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setShowQualityMenu((prev) => !prev);
+                          }}
+                          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-white/5 bg-white/[0.03] hover:bg-white/[0.08] hover:border-white/10 text-white text-xs font-bold transition-all shadow-sm ${showQualityMenu ? "bg-white/[0.08] border-primary/30" : ""}`}
+                          title="Quality / Resolution"
+                        >
+                          <Settings size={14} className={`transition-transform duration-300 ${showQualityMenu ? "rotate-45 text-primary" : ""}`} />
+                          <span>
+                            {currentLevel === -1
+                              ? liveQualityHeight
+                                ? `Auto (${liveQualityHeight}p)`
+                                : "Auto"
+                              : qualityOptions.find((l) => l.id === currentLevel)?.name || "Quality"}
+                          </span>
+                        </button>
+
+                        <AnimatePresence>
+                          {showQualityMenu && (
+                            <motion.div
+                              initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                              animate={{ opacity: 1, y: 0, scale: 1 }}
+                              exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                              className="absolute bottom-full right-0 mb-2.5 w-32 bg-[#0c0824]/98 border border-white/10 rounded-2xl overflow-hidden shadow-2xl z-50 backdrop-blur-md py-1"
+                            >
+                              <div className="text-[10px] text-zinc-400 font-black uppercase tracking-widest px-3 py-1.5 border-b border-white/5 select-none">
+                                Resolution
+                              </div>
+                              <div className="max-h-48 overflow-y-auto custom-scrollbar">
+                                {qualityOptions.map((lvl) => {
+                                  const isSelected = currentLevel === lvl.id;
+                                  return (
+                                    <button
+                                      key={lvl.id}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleQualityChange(lvl.id);
+                                      }}
+                                      className={`w-full text-left px-3 py-2 text-xs font-bold transition-colors flex items-center justify-between ${
+                                        isSelected
+                                          ? "text-primary bg-primary/10"
+                                          : "text-zinc-300 hover:text-white hover:bg-white/5"
+                                      }`}
+                                    >
+                                      <span>{lvl.name}</span>
+                                      {isSelected && <Check size={12} className="text-primary stroke-[3]" />}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
+                    )}
+
                     {isPipSupported && (
                       <button
                         onClick={handlePip}
@@ -1883,12 +2157,13 @@ export default function IPTVPlayer() {
 
             {/* Developer Info Card */}
             <div className="glass-card p-4 sm:p-6 border border-white/10 sm:border-white/5 rounded-2xl md:rounded-3xl flex flex-row items-center justify-between gap-4 text-left bg-white/[0.01] w-full md:col-span-1">
+              {/* Left block: Avatar & Name/Socials */}
               <div className="flex items-center gap-3 flex-shrink-0">
                 <div className="relative">
                   <div className="relative w-10 h-10 sm:w-12 sm:h-12 rounded-full overflow-hidden border border-white/15 shadow-md">
                     <Image
-                      src="https://avatars.githubusercontent.com/u/171383675?v=4"
-                      alt="S. SHAJON"
+                      src="https://avatars.githubusercontent.com/u/64696205?v=4"
+                      alt="Kallan Biswas"
                       width={48}
                       height={48}
                       className="w-full h-full object-cover"
@@ -1898,11 +2173,11 @@ export default function IPTVPlayer() {
                 </div>
                 <div className="flex flex-col">
                   <h3 className="text-base sm:text-lg font-black text-white leading-tight">
-                    S. SHAJON
+                    Kallan Biswas
                   </h3>
                   <div className="flex items-center gap-3 mt-1.5">
                     <a
-                      href="https://github.com/SHAJON-404"
+                      href="https://github.com/BlackBox-cmd"
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-zinc-300 hover:text-white transition-colors"
@@ -1911,7 +2186,7 @@ export default function IPTVPlayer() {
                       <FaGithub size={18} />
                     </a>
                     <a
-                      href="https://t.me/SHAJON"
+                      href="https://t.me/kallanbiswas"
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-zinc-300 hover:text-[#26A5E4] transition-colors"
@@ -1920,7 +2195,7 @@ export default function IPTVPlayer() {
                       <FaTelegram size={18} />
                     </a>
                     <a
-                      href="https://www.facebook.com/shahmakhdumshajonofficial"
+                      href="https://www.facebook.com/Kallan.Biswas.92"
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-zinc-300 hover:text-[#1877F2] transition-colors"
@@ -1928,23 +2203,17 @@ export default function IPTVPlayer() {
                     >
                       <FaFacebook size={18} />
                     </a>
-                    <a
-                      href="https://youtube.com/@SHAJON-404"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-zinc-300 hover:text-[#FF0000] transition-colors"
-                      title="YouTube"
-                    >
-                      <FaYoutube size={18} />
-                    </a>
+
                   </div>
                 </div>
               </div>
 
-              <div className="hidden xs:block h-10 w-[1px] bg-white/10 flex-shrink-0" />
+              {/* Vertical Separator */}
+              #<div className="hidden xs:block h-10 w-[1px] bg-white/10 flex-shrink-0" />
 
+              {/* Right block: Support details */}
               <p className="text-[10px] sm:text-[10.5px] leading-normal text-zinc-400 font-medium select-text flex-1 pl-1 min-w-[120px]">
-                For any support, contact via <a href="https://t.me/SHAJON" target="_blank" rel="noopener noreferrer" className="text-[#26A5E4] font-bold hover:underline">Telegram only</a>. Follow GitHub for updates!
+                For any support, contact via <a href="https://t.me/kallanbiswas" target="_blank" rel="noopener noreferrer" className="text-[#26A5E4] font-bold hover:underline">Telegram only</a>. Follow GitHub for updates!
               </p>
             </div>
 
@@ -1966,7 +2235,7 @@ export default function IPTVPlayer() {
 
           {/* 3. Main Content Area: Sidebar + Channel List */}
           <div className="flex flex-col lg:flex-row gap-6 w-full">
-            
+
             {/* Sidebar: Your Playlists */}
             <div className="w-full lg:w-1/3 xl:w-1/4 glass-card p-4 sm:p-6 border border-white/10 sm:border-white/5 rounded-2xl md:rounded-3xl bg-white/[0.01] flex flex-col max-h-[280px] lg:max-h-none lg:h-[600px] xl:h-[700px]">
               <div className="flex items-center justify-between pb-3 sm:pb-4 border-b border-white/10 sm:border-white/5 mb-3 sm:mb-4">
@@ -1988,8 +2257,8 @@ export default function IPTVPlayer() {
                         setPlaylistTab("browse");
                       }}
                       className={`flex items-center justify-between p-3 sm:p-4 rounded-xl sm:rounded-2xl border text-left transition-all cursor-pointer group/item ${isActive
-                          ? "bg-primary/10 border-primary text-primary shadow-lg shadow-primary/5"
-                          : "bg-white/[0.02] border-white/10 sm:border-white/5 text-white hover:bg-white/[0.05] hover:border-white/10"
+                        ? "bg-primary/10 border-primary text-primary shadow-lg shadow-primary/5"
+                        : "bg-white/[0.02] border-white/10 sm:border-white/5 text-white hover:bg-white/[0.05] hover:border-white/10"
                         }`}
                     >
                       <div className="flex items-center gap-2.5 min-w-0">
@@ -2023,14 +2292,14 @@ export default function IPTVPlayer() {
                           pl.id !== "sports" &&
                           pl.id !== "universal" &&
                           pl.id !== "bangla" && (
-                          <button
-                            onClick={(e) => handleDeletePlaylist(pl.id, e)}
-                            className="p-1.5 sm:p-2 rounded-lg sm:rounded-xl text-zinc-400 hover:text-rose-500 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/20 transition-all opacity-100 lg:opacity-0 lg:group-hover/item:opacity-100 focus:opacity-100 cursor-pointer"
-                            title="Delete Playlist"
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        )}
+                            <button
+                              onClick={(e) => handleDeletePlaylist(pl.id, e)}
+                              className="p-1.5 sm:p-2 rounded-lg sm:rounded-xl text-zinc-400 hover:text-rose-500 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/20 transition-all opacity-100 lg:opacity-0 lg:group-hover/item:opacity-100 focus:opacity-100 cursor-pointer"
+                              title="Delete Playlist"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          )}
                       </div>
                     </div>
                   );
@@ -2040,312 +2309,285 @@ export default function IPTVPlayer() {
 
             {/* Channel List Card */}
             <div className="w-full lg:w-2/3 xl:w-3/4 glass-card p-4 sm:p-6 border border-white/10 sm:border-white/5 rounded-2xl md:rounded-3xl bg-white/[0.01] flex flex-col h-[600px] sm:h-[700px]">
-            {/* Playlist Header & Tab Bar */}
-            <div className="flex items-center justify-between pb-3 sm:pb-4 border-b border-white/10 sm:border-white/5 mb-3 sm:mb-4 flex-wrap gap-2">
-              <div className="flex items-center bg-white/5 p-1 rounded-xl border border-white/10 sm:border-white/5 w-full sm:w-auto">
-                <button
-                  onClick={() => setPlaylistTab("browse")}
-                  className={`flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all flex-1 sm:flex-initial ${playlistTab === "browse"
+              {/* Playlist Header & Tab Bar */}
+              <div className="flex items-center justify-between pb-3 sm:pb-4 border-b border-white/10 sm:border-white/5 mb-3 sm:mb-4 flex-wrap gap-2">
+                <div className="flex items-center bg-white/5 p-1 rounded-xl border border-white/10 sm:border-white/5 w-full sm:w-auto">
+                  <button
+                    onClick={() => setPlaylistTab("browse")}
+                    className={`flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all flex-1 sm:flex-initial ${playlistTab === "browse"
                       ? "bg-primary text-white shadow-lg shadow-primary/20"
                       : "text-zinc-300 hover:text-white"
-                    }`}
-                >
-                  <Tv size={14} />
-                  <span className="whitespace-nowrap">Browse Channels</span>
-                </button>
-                <button
-                  onClick={() => setPlaylistTab("manage")}
-                  className={`flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all flex-1 sm:flex-initial ${playlistTab === "manage"
+                      }`}
+                  >
+                    <Tv size={14} />
+                    <span className="whitespace-nowrap">Browse Channels</span>
+                  </button>
+                  <button
+                    onClick={() => setPlaylistTab("manage")}
+                    className={`flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all flex-1 sm:flex-initial ${playlistTab === "manage"
                       ? "bg-primary text-white shadow-lg shadow-primary/20"
                       : "text-zinc-300 hover:text-white"
-                    }`}
-                >
-                  <Upload size={14} />
-                  <span className="whitespace-nowrap">Playlists Manager</span>
-                </button>
-              </div>
-
-              {/* Display active playlist name & watcher count */}
-              <div className="flex items-center bg-white/5 p-1 rounded-xl border border-white/10 sm:border-white/5 w-full sm:w-auto justify-between sm:justify-start">
-                {viewerCount !== null && (
-                  <>
-                    <div className="flex items-center gap-1.5 sm:gap-2 px-3 py-1.5 rounded-lg text-[10px] sm:text-xs text-zinc-300 select-none">
-                      <span className="h-1.5 w-1.5 rounded-full bg-blue-500 animate-pulse shrink-0" />
-                      <span className="text-white font-bold whitespace-nowrap">
-                        {viewerCount} {viewerCount === 1 ? "Watcher" : "Watchers"}
-                      </span>
-                    </div>
-                    <div className="hidden sm:block h-4 w-[1px] bg-white/10 mx-1 flex-shrink-0" />
-                  </>
-                )}
-
-                <div className="flex items-center gap-1.5 sm:gap-2 px-3 py-1.5 rounded-lg text-[10px] sm:text-xs text-zinc-300 select-none max-w-[180px] sm:max-w-[260px] truncate">
-                  <span className="font-semibold shrink-0">Playlist:</span>
-                  <span className="text-white font-bold truncate">
-                    {playlists.find((p) => p.id === activePlaylistId)?.name}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {playlistTab === "browse" ? (
-              <>
-                {/* Search and Filters */}
-                <div className="space-y-3 sm:space-y-4 pb-3 sm:pb-4 border-b border-white/10 sm:border-white/5">
-                  <div className="relative flex items-center bg-white/5 border border-white/10 sm:border-white/5 focus-within:border-primary/50 rounded-xl sm:rounded-2xl p-1 transition-colors">
-                    <Search className="text-zinc-400 ml-2.5 sm:ml-3" size={15} />
-                    <input
-                      type="text"
-                      placeholder="Search live TV..."
-                      value={searchQuery}
-                      onChange={(e) => { setSearchQuery(e.target.value); setDisplayCount(80); }}
-                      className="flex-1 bg-transparent border-none outline-none py-1.5 sm:py-2 px-2.5 sm:px-3 text-sm text-white placeholder:text-zinc-400"
-                    />
-                    {searchQuery && (
-                      <button
-                        onClick={() => {
-                          setSearchQuery("");
-                          setDisplayCount(80);
-                        }}
-                        className="p-1 mr-1.5 sm:mr-2 rounded-lg text-zinc-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
-                        title="Clear Search"
-                      >
-                        <X size={14} />
-                      </button>
-                    )}
-                  </div>
-
-                  {/* Categories horizontally scrollable */}
-                  <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto pb-1 no-scrollbar">
-                    {categories.map((cat) => (
-                      <button
-                        key={cat}
-                        onClick={() => { setSelectedCategory(cat); setDisplayCount(80); }}
-                        className={`px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg sm:rounded-xl text-[11px] sm:text-xs font-bold whitespace-nowrap border transition-all ${selectedCategory === cat
-                            ? "bg-primary border-primary text-white shadow-lg shadow-primary/20"
-                            : "bg-white/5 border-white/10 sm:border-white/5 text-zinc-300 hover:text-white hover:bg-white/10"
-                          }`}
-                      >
-                        {cat}
-                      </button>
-                    ))}
-                  </div>
+                      }`}
+                  >
+                    <Upload size={14} />
+                    <span className="whitespace-nowrap">Playlists Manager</span>
+                  </button>
                 </div>
 
-                {/* List styled as a responsive grid */}
-                <div className="flex-1 min-h-0 overflow-y-auto pt-3 sm:pt-4 pr-1 custom-scrollbar">
-                  {loading ? (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                      {Array.from({ length: 12 }).map((_, idx) => (
-                        <div
-                          key={idx}
-                          className="flex items-center gap-2.5 sm:gap-3 p-2.5 sm:p-3 rounded-xl sm:rounded-2xl bg-white/[0.02] border border-white/10 sm:border-white/5 animate-pulse"
-                        >
-                          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-white/10" />
-                          <div className="flex-1 space-y-1.5 sm:space-y-2">
-                            <div className="h-2.5 sm:h-3 w-1/3 bg-white/10 rounded" />
-                            <div className="h-3.5 sm:h-4 w-2/3 bg-white/10 rounded" />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : filteredChannels.length === 0 ? (
-                    <div className="text-center py-12 text-zinc-400 text-sm font-medium">
-                      No channels found match your filters.
-                    </div>
-                  ) : (
+                {/* Display active playlist name & watcher count */}
+                <div className="flex items-center bg-white/5 p-1 rounded-xl border border-white/10 sm:border-white/5 w-full sm:w-auto justify-between sm:justify-start">
+                  {viewerCount !== null && (
                     <>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                      {visibleChannels.map((chan) => {
-                        const isSelected = selectedChannel?.id === chan.id;
-                        return (
-                          <button
-                            key={chan.id}
-                            onClick={() => handleChannelSelect(chan)}
-                            className={`w-full flex items-center gap-2.5 sm:gap-3 p-2.5 sm:p-3 rounded-xl sm:rounded-2xl border text-left transition-all group ${isSelected
-                                ? "bg-primary/10 border-primary text-primary"
-                                : "bg-white/[0.02] border-white/10 sm:border-white/5 text-white hover:bg-white/[0.05] hover:border-white/10"
-                              }`}
-                          >
-                            {chan.logo ? (
-                              <Image
-                                src={chan.logo}
-                                alt={chan.name}
-                                width={40}
-                                height={40}
-                                onError={(e) => {
-                                  (e.currentTarget as HTMLElement).style.display = "none";
-                                }}
-                                className="w-9 h-9 sm:w-10 sm:h-10 object-contain rounded-lg sm:rounded-xl bg-white/5 p-0.5 border border-white/10 group-hover:scale-105 transition-transform"
-                              />
-                            ) : (
-                              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-gradient-to-tr from-white/5 to-white/10 flex items-center justify-center font-bold text-xs border border-white/10 text-zinc-300 group-hover:text-white transition-colors">
-                                {getInitials(chan.name)}
-                              </div>
-                            )}
-
-                            <div className="flex-1 min-w-0">
-                              <p
-                                className={`text-[10px] sm:text-xs font-bold uppercase tracking-wider ${isSelected ? "text-primary/75" : "text-zinc-400"
-                                  }`}
-                              >
-                                {chan.group}
-                              </p>
-                              <p className="text-[13px] sm:text-sm font-bold truncate">
-                                {chan.name}
-                              </p>
-                            </div>
-
-                            {isSelected && (
-                              <Play
-                                size={13}
-                                className="sm:w-3.5 sm:h-3.5 fill-primary text-primary animate-pulse"
-                              />
-                            )}
-                          </button>
-                        );
-                      })}
-                    </div>
-
-                    {/* Load More Button */}
-                    {hasMore && (
-                      <div className="flex justify-center pt-4 pb-2">
-                        <button
-                          onClick={() => setDisplayCount(prev => prev + 80)}
-                          className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-white/[0.04] border border-white/[0.06] text-xs sm:text-sm font-bold text-zinc-300 hover:text-white hover:bg-white/[0.08] hover:border-white/10 transition-all active:scale-95"
-                        >
-                          <ChevronsRight size={14} className="rotate-90" />
-                          <span>Load More ({filteredChannels.length - displayCount} remaining)</span>
-                        </button>
+                      <div className="flex items-center gap-1.5 sm:gap-2 px-3 py-1.5 rounded-lg text-[10px] sm:text-xs text-zinc-300 select-none">
+                        <span className="h-1.5 w-1.5 rounded-full bg-blue-500 animate-pulse shrink-0" />
+                        <span className="text-white font-bold whitespace-nowrap">
+                          {viewerCount} {viewerCount === 1 ? "Watcher" : "Watchers"}
+                        </span>
                       </div>
-                    )}
+                      <div className="hidden sm:block h-4 w-[1px] bg-white/10 mx-1 flex-shrink-0" />
                     </>
                   )}
+
+                  <div className="flex items-center gap-1.5 sm:gap-2 px-3 py-1.5 rounded-lg text-[10px] sm:text-xs text-zinc-300 select-none max-w-[180px] sm:max-w-[260px] truncate">
+                    <span className="font-semibold shrink-0">Playlist:</span>
+                    <span className="text-white font-bold truncate">
+                      {playlists.find((p) => p.id === activePlaylistId)?.name}
+                    </span>
+                  </div>
                 </div>
-              </>
-            ) : (
-              <div className="flex-1 overflow-y-auto pr-1 space-y-6 custom-scrollbar text-left">
-                {/* Import Playlist Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                  {/* URL Import Box */}
-                  <form onSubmit={handleUrlImport} className="glass-card p-4 sm:p-5 border border-white/10 sm:border-white/5 rounded-2xl bg-white/[0.01] flex flex-col justify-between min-h-[180px] hover:border-primary/20 transition-colors">
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-2">
-                        <div className="p-2 rounded-lg bg-primary/10 text-primary">
-                          <Link size={18} />
-                        </div>
-                        <h4 className="font-bold text-sm sm:text-base">Load from URL</h4>
-                      </div>
+              </div>
 
-                      <div className="space-y-2">
-                        <input
-                          type="text"
-                          placeholder="Playlist Name (e.g. My IPTV)"
-                          value={playlistName}
-                          onChange={(e) => setPlaylistName(e.target.value)}
-                          className="w-full bg-white/5 border border-white/10 sm:border-white/5 focus-within:border-primary/40 rounded-xl py-2.5 px-3 text-xs text-white placeholder:text-zinc-400 outline-none transition-colors"
-                        />
-                        <input
-                          type="url"
-                          placeholder="https://example.com/playlist.m3u"
-                          value={importUrl}
-                          onChange={(e) => setImportUrl(e.target.value)}
-                          required
-                          className="w-full bg-white/5 border border-white/10 sm:border-white/5 focus-within:border-primary/40 rounded-xl py-2.5 px-3 text-xs text-white placeholder:text-zinc-400 outline-none transition-colors"
-                        />
-                      </div>
-                    </div>
-
-                    <button
-                      type="submit"
-                      disabled={isImporting}
-                      className="mt-4 w-full flex items-center justify-center gap-2 py-3 px-4 bg-primary hover:bg-primary/95 text-white text-xs font-bold rounded-xl transition-all shadow-md shadow-primary/10 disabled:opacity-50 active:scale-95 cursor-pointer"
-                    >
-                      {isImporting ? (
-                        <>
-                          <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                          <span>Importing Stream...</span>
-                        </>
-                      ) : (
-                        <>
-                          <Check size={14} />
-                          <span>Import Playlist</span>
-                        </>
-                      )}
-                    </button>
-                  </form>
-
-                  {/* File Upload Box */}
-                  <div
-                    onDragOver={handleDragOver}
-                    onDragLeave={handleDragLeave}
-                    onDrop={handleDrop}
-                    className={`glass-card p-4 sm:p-5 border rounded-2xl flex flex-col justify-between min-h-[220px] transition-all relative overflow-hidden ${
-                      isDragging
-                        ? "border-dashed border-primary bg-primary/10 shadow-[0_0_20px_rgba(139,92,246,0.2)]"
-                        : "border-white/10 sm:border-white/5 bg-white/[0.01] hover:border-primary/20"
-                    }`}
-                  >
-                    <div>
-                      <div className="flex items-center gap-2 mb-2">
-                        <div className="p-2 rounded-lg bg-primary/10 text-primary">
-                          <Upload size={18} />
-                        </div>
-                        <h4 className="font-bold text-sm sm:text-base">Upload Playlist File</h4>
-                      </div>
-                      <p className="text-xs text-zinc-300">
-                        Upload local .m3u, .m3u8, or .json playlist files. Stored securely in your browser cache.
-                      </p>
-
-                      <div className="mt-3">
-                        <input
-                          type="text"
-                          placeholder="Playlist Name (Optional)"
-                          value={uploadPlaylistName}
-                          onChange={(e) => setUploadPlaylistName(e.target.value)}
-                          className="w-full bg-white/5 border border-white/10 sm:border-white/5 focus-within:border-primary/40 rounded-xl py-2 px-3 text-xs text-white placeholder:text-zinc-400 outline-none transition-colors"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="mt-4">
+              {playlistTab === "browse" ? (
+                <>
+                  {/* Search and Filters */}
+                  <div className="space-y-3 sm:space-y-4 pb-3 sm:pb-4 border-b border-white/10 sm:border-white/5">
+                    <div className="relative flex items-center bg-white/5 border border-white/10 sm:border-white/5 focus-within:border-primary/50 rounded-xl sm:rounded-2xl p-1 transition-colors">
+                      <Search className="text-zinc-400 ml-2.5 sm:ml-3" size={15} />
                       <input
-                        type="file"
-                        ref={fileInputRef}
-                        onChange={handleFileUpload}
-                        accept=".m3u,.m3u8,.json"
-                        className="hidden"
+                        type="text"
+                        placeholder="Search live TV..."
+                        value={searchQuery}
+                        onChange={(e) => { setSearchQuery(e.target.value); setDisplayCount(80); }}
+                        className="flex-1 bg-transparent border-none outline-none py-1.5 sm:py-2 px-2.5 sm:px-3 text-sm text-white placeholder:text-zinc-400"
                       />
-                      <button
-                        onClick={() => fileInputRef.current?.click()}
-                        className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-white/5 hover:bg-white/10 text-white border border-white/10 hover:border-white/20 text-xs font-bold rounded-xl transition-all shadow-md active:scale-95 cursor-pointer"
-                      >
-                        <Upload size={14} />
-                        <span>Choose M3U or JSON File</span>
-                      </button>
+                      {searchQuery && (
+                        <button
+                          onClick={() => {
+                            setSearchQuery("");
+                            setDisplayCount(80);
+                          }}
+                          className="p-1 mr-1.5 sm:mr-2 rounded-lg text-zinc-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                          title="Clear Search"
+                        >
+                          <X size={14} />
+                        </button>
+                      )}
                     </div>
 
-                    {isDragging && (
-                      <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#070414]/90 backdrop-blur-xs pointer-events-none z-10 border-2 border-dashed border-primary m-1 rounded-xl">
-                        <Upload size={28} className="text-primary animate-bounce mb-2" />
-                        <p className="text-xs font-bold text-white">Drop your file here</p>
-                        <p className="text-[9px] text-zinc-400">supports .m3u, .m3u8, .json</p>
+                    {/* Categories horizontally scrollable */}
+                    <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto pb-1 no-scrollbar">
+                      {categories.map((cat) => (
+                        <button
+                          key={cat}
+                          onClick={() => { setSelectedCategory(cat); setDisplayCount(80); }}
+                          className={`px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg sm:rounded-xl text-[11px] sm:text-xs font-bold whitespace-nowrap border transition-all ${selectedCategory === cat
+                            ? "bg-primary border-primary text-white shadow-lg shadow-primary/20"
+                            : "bg-white/5 border-white/10 sm:border-white/5 text-zinc-300 hover:text-white hover:bg-white/10"
+                            }`}
+                        >
+                          {cat}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* List styled as a responsive grid */}
+                  <div className="flex-1 min-h-0 overflow-y-auto pt-3 sm:pt-4 pr-1 custom-scrollbar">
+                    {loading ? (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                        {Array.from({ length: 12 }).map((_, idx) => (
+                          <div
+                            key={idx}
+                            className="flex items-center gap-2.5 sm:gap-3 p-2.5 sm:p-3 rounded-xl sm:rounded-2xl bg-white/[0.02] border border-white/10 sm:border-white/5 animate-pulse"
+                          >
+                            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-white/10" />
+                            <div className="flex-1 space-y-1.5 sm:space-y-2">
+                              <div className="h-2.5 sm:h-3 w-1/3 bg-white/10 rounded" />
+                              <div className="h-3.5 sm:h-4 w-2/3 bg-white/10 rounded" />
+                            </div>
+                          </div>
+                        ))}
                       </div>
+                    ) : filteredChannels.length === 0 ? (
+                      <div className="text-center py-12 text-zinc-400 text-sm font-medium">
+                        No channels found match your filters.
+                      </div>
+                    ) : (
+                      <>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                          {visibleChannels.map((chan) => {
+                            const isSelected = selectedChannel?.id === chan.id;
+                            return (
+                              <button
+                                key={chan.id}
+                                onClick={() => handleChannelSelect(chan)}
+                                className={`w-full flex items-center gap-2.5 sm:gap-3 p-2.5 sm:p-3 rounded-xl sm:rounded-2xl border text-left transition-all group ${isSelected
+                                  ? "bg-primary/10 border-primary text-primary"
+                                  : "bg-white/[0.02] border-white/10 sm:border-white/5 text-white hover:bg-white/[0.05] hover:border-white/10"
+                                  }`}
+                              >
+                                {chan.logo ? (
+                                  <Image
+                                    src={chan.logo}
+                                    alt={chan.name}
+                                    width={40}
+                                    height={40}
+                                    onError={(e) => {
+                                      (e.currentTarget as HTMLElement).style.display = "none";
+                                    }}
+                                    className="w-9 h-9 sm:w-10 sm:h-10 object-contain rounded-lg sm:rounded-xl bg-white/5 p-0.5 border border-white/10 group-hover:scale-105 transition-transform"
+                                  />
+                                ) : (
+                                  <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-gradient-to-tr from-white/5 to-white/10 flex items-center justify-center font-bold text-xs border border-white/10 text-zinc-300 group-hover:text-white transition-colors">
+                                    {getInitials(chan.name)}
+                                  </div>
+                                )}
+
+                                <div className="flex-1 min-w-0">
+                                  <p
+                                    className={`text-[10px] sm:text-xs font-bold uppercase tracking-wider ${isSelected ? "text-primary/75" : "text-zinc-400"
+                                      }`}
+                                  >
+                                    {chan.group}
+                                  </p>
+                                  <p className="text-[13px] sm:text-sm font-bold truncate">
+                                    {chan.name}
+                                  </p>
+                                </div>
+
+                                {isSelected && (
+                                  <Play
+                                    size={13}
+                                    className="sm:w-3.5 sm:h-3.5 fill-primary text-primary animate-pulse"
+                                  />
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+
+                        {/* Load More Button */}
+                        {hasMore && (
+                          <div className="flex justify-center pt-4 pb-2">
+                            <button
+                              onClick={() => setDisplayCount(prev => prev + 80)}
+                              className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-white/[0.04] border border-white/[0.06] text-xs sm:text-sm font-bold text-zinc-300 hover:text-white hover:bg-white/[0.08] hover:border-white/10 transition-all active:scale-95"
+                            >
+                              <ChevronsRight size={14} className="rotate-90" />
+                              <span>Load More ({filteredChannels.length - displayCount} remaining)</span>
+                            </button>
+                          </div>
+                        )}
+                      </>
                     )}
                   </div>
-                </div>
+                </>
+              ) : (
+                <div className="flex-1 overflow-y-auto pr-1 space-y-6 custom-scrollbar text-left">
+                  {/* Import Playlist Grid */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    {/* URL Import Box */}
+                    <form onSubmit={handleUrlImport} className="glass-card p-4 sm:p-5 border border-white/10 sm:border-white/5 rounded-2xl bg-white/[0.01] flex flex-col justify-between min-h-[180px] hover:border-primary/20 transition-colors">
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2">
+                          <div className="p-2 rounded-lg bg-primary/10 text-primary">
+                            <Link size={18} />
+                          </div>
+                          <h4 className="font-bold text-sm sm:text-base">Load from URL</h4>
+                        </div>
 
-                {/* Validation Errors */}
-                {importError && (
-                  <div className="flex items-start gap-2.5 p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-semibold">
-                    <AlertCircle size={15} className="mt-0.5 flex-shrink-0" />
-                    <span>{importError}</span>
+                        <div className="space-y-2">
+                          <input
+                            type="text"
+                            placeholder="Playlist Name (e.g. My IPTV)"
+                            value={playlistName}
+                            onChange={(e) => setPlaylistName(e.target.value)}
+                            className="w-full bg-white/5 border border-white/10 sm:border-white/5 focus-within:border-primary/40 rounded-xl py-2.5 px-3 text-xs text-white placeholder:text-zinc-400 outline-none transition-colors"
+                          />
+                          <input
+                            type="url"
+                            placeholder="https://example.com/playlist.m3u"
+                            value={importUrl}
+                            onChange={(e) => setImportUrl(e.target.value)}
+                            required
+                            className="w-full bg-white/5 border border-white/10 sm:border-white/5 focus-within:border-primary/40 rounded-xl py-2.5 px-3 text-xs text-white placeholder:text-zinc-400 outline-none transition-colors"
+                          />
+                        </div>
+                      </div>
+
+                      <button
+                        type="submit"
+                        disabled={isImporting}
+                        className="mt-4 w-full flex items-center justify-center gap-2 py-3 px-4 bg-primary hover:bg-primary/95 text-white text-xs font-bold rounded-xl transition-all shadow-md shadow-primary/10 disabled:opacity-50 active:scale-95 cursor-pointer"
+                      >
+                        {isImporting ? (
+                          <>
+                            <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                            <span>Importing Stream...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Check size={14} />
+                            <span>Import Playlist</span>
+                          </>
+                        )}
+                      </button>
+                    </form>
+
+                    {/* File Upload Box */}
+                    <div className="glass-card p-4 sm:p-5 border border-white/10 sm:border-white/5 rounded-2xl bg-white/[0.01] flex flex-col justify-between min-h-[180px] hover:border-primary/20 transition-colors">
+                      <div>
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className="p-2 rounded-lg bg-primary/10 text-primary">
+                            <Upload size={18} />
+                          </div>
+                          <h4 className="font-bold text-sm sm:text-base">Upload Playlist File</h4>
+                        </div>
+                        <p className="text-xs text-zinc-300">
+                          Upload local .m3u, .m3u8, or .json playlist files. Stored securely in your browser cache.
+                        </p>
+                      </div>
+
+                      <div className="mt-4">
+                        <input
+                          type="file"
+                          ref={fileInputRef}
+                          onChange={handleFileUpload}
+                          accept=".m3u,.m3u8,.json"
+                          className="hidden"
+                        />
+                        <button
+                          onClick={() => fileInputRef.current?.click()}
+                          className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-white/5 hover:bg-white/10 text-white border border-white/10 hover:border-white/20 text-xs font-bold rounded-xl transition-all shadow-md active:scale-95"
+                        >
+                          <Upload size={14} />
+                          <span>Choose M3U or JSON File</span>
+                        </button>
+                      </div>
+                    </div>
                   </div>
-                )}
 
-              </div>
-            )}
-          </div>
+                  {/* Validation Errors */}
+                  {importError && (
+                    <div className="flex items-start gap-2.5 p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-semibold">
+                      <AlertCircle size={15} className="mt-0.5 flex-shrink-0" />
+                      <span>{importError}</span>
+                    </div>
+                  )}
+
+                </div>
+              )}
+            </div>
           </div>
 
           {/* 4. Footer with Developer Info */}
@@ -2360,10 +2602,10 @@ export default function IPTVPlayer() {
               <div className="flex items-center gap-2">
                 <span className="flex items-center px-3 py-1.5 rounded-xl bg-white/[0.03] border border-white/[0.08] text-[10px] sm:text-xs text-zinc-300 font-medium whitespace-nowrap shadow-sm">
                   Developed by{" "}
-                  <span className="text-white font-bold ml-1">S. SHAJON</span>
+                  <span className="text-white font-bold ml-1">Kallan Biswas</span>
                 </span>
                 <a
-                  href="https://github.com/SHAJON-404/iptv"
+                  href="https://github.com/BlackBox-cmd/iptv"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/[0.05] hover:bg-white/[0.09] border border-white/[0.08] hover:border-white/[0.18] text-[10px] sm:text-xs text-gray-300 hover:text-white font-semibold transition-all duration-300 shadow-sm whitespace-nowrap"

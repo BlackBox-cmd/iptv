@@ -12,6 +12,7 @@ import {
   Globe,
   BookOpen,
 } from "lucide-react";
+import { FaFacebook } from "react-icons/fa6";
 
 import BackgroundScene from "../components/BackgroundScene";
 import Header from "../components/Header";
@@ -56,7 +57,7 @@ const faqs = [
     id: "faq-6",
     question: "How can I contact support or request channels?",
     answer:
-      "For any queries, suggestions, or technical support, please contact the developer via Telegram only (@SHAJON). You can also follow our official GitHub repository (SHAJON-404/iptv) for code updates, bug reports, and new features.",
+      "For any queries, suggestions, or technical support, please contact the developer via Facebook. You can also follow our official GitHub repository (BlackBox-cmd/iptv) for code updates, bug reports, and new features.",
     icon: MessageCircle,
   },
 ];
@@ -174,18 +175,17 @@ export default function FAQPage() {
           >
             <h3 className="text-base sm:text-lg font-bold">Still have questions?</h3>
             <p className="text-xs sm:text-sm text-zinc-400 font-medium">
-              If you couldn&apos;t find your answer here, feel free to reach out for direct support.
-              We are active on Telegram.
+              If you couldn&apos;t find your answer here, feel free to reach out for direct support on Facebook.
             </p>
             <div className="pt-2">
               <a
-                href="https://t.me/SHAJON"
+                href="https://www.facebook.com/Kallan.Biswas.92/"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary hover:bg-primary/95 text-white font-extrabold text-xs sm:text-sm transition-all duration-300 shadow-md shadow-primary/10 hover:scale-[1.01] active:scale-[0.99] cursor-pointer"
               >
-                <MessageCircle size={15} />
-                <span>Contact via Telegram</span>
+                <FaFacebook size={15} />
+                <span>Contact via Facebook</span>
               </a>
             </div>
           </motion.div>

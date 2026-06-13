@@ -83,22 +83,13 @@ export default function TelegramPopup({ showPopup }: TelegramPopupProps) {
 
               {/* Title */}
               <h3 className="mt-4 text-xl sm:text-2xl font-black tracking-tight text-white leading-tight">
-                Join <span className="bg-linear-to-r from-sky-400 to-[#26A5E4] bg-clip-text text-transparent">shajonOTT</span>
+                Join <span className="bg-linear-to-r from-sky-400 to-[#26A5E4] bg-clip-text text-transparent">FreakCloud</span>
               </h3>
             </div>
-
-            {/* Description Card */}
-            <div className="mt-4 sm:mt-5 rounded-2xl border border-white/10 sm:border-white/5 bg-white/[0.015] p-4 sm:p-5 relative overflow-hidden">
-              <div className="absolute top-0 left-0 w-1.5 h-full bg-[#26A5E4]" />
-              <p className="text-center sm:text-left text-xs sm:text-sm leading-relaxed text-zinc-300 font-medium">
-                আইনি নোটিশের কারণে ওয়েবসাইট থেকে নির্দিষ্ট কিছু চ্যানেল সরিয়ে ফেলা হয়েছে। তবে আপনি চাইলে এখনও সেই চ্যানেলগুলো দেখতে পারেন, তার জন্য এখনই আমাদের টেলিগ্রাম চ্যানেলে জয়েন করুন।
-              </p>
-            </div>
-
             {/* Action Buttons */}
             <div className="mt-5 sm:mt-6 flex flex-col gap-2.5">
               <a
-                href="https://t.me/shajonOTT"
+                href="https://t.me/kallanbiswas"
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={handleClose}
@@ -107,7 +98,7 @@ export default function TelegramPopup({ showPopup }: TelegramPopupProps) {
                 <Send className="h-3.5 w-3.5 sm:h-4 sm:w-4 fill-white text-white" />
                 <span>Join Channel Now</span>
               </a>
-              
+
               <button
                 onClick={handleClose}
                 className="w-full flex items-center justify-center gap-2 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 px-4 py-3 sm:px-5 sm:py-3.5 text-xs sm:text-sm font-black text-white transition-all hover:scale-[1.01] active:scale-[0.99] cursor-pointer text-center"

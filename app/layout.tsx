@@ -8,7 +8,7 @@ const inter = Inter({
   subsets: ["latin"],
 });
 
-const siteUrl = "https://tv.shajon.dev";
+const siteUrl = "https://iptv.freakcloud.tk";
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -39,9 +39,9 @@ export const metadata: Metadata = {
     "m3u player",
     "web TV player",
   ],
-  authors: [{ name: "S. SHAJON", url: "https://github.com/SHAJON-404" }],
-  creator: "S. SHAJON",
-  publisher: "S. SHAJON",
+  authors: [{ name: "Kallan Biswas", url: "https://github.com/BlackBox-cmd" }],
+  creator: "Kallan Biswas",
+  publisher: "Kallan Biswas",
   metadataBase: new URL(siteUrl),
   alternates: {
     canonical: "/",
@@ -64,7 +64,7 @@ export const metadata: Metadata = {
       "Stream 6500+ live TV channels from Bangladesh, India, and worldwide. Premium IPTV web player with HLS streaming, custom playlist support, and a modern UI.",
     images: [
       {
-        url: "/og-image.png",
+        url: "/iptv-cover.png",
         width: 1200,
         height: 630,
         alt: "IPTV Player — Live TV streaming with 6500+ channels",
