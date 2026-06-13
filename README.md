@@ -208,5 +208,5 @@ This project is open-source software licensed under the **GNU General Public Lic
 
 ---
 <div align="center">
-Developed with ♥ by <a href="https://t.me/kallanbiswas"><b>Kallan Biswas</b></a>. Follow <a href="https://github.com/BlackBox-cmd"><b>GitHub Profile</b></a> for updates.
+Developed with ♥ by <a href="https://t.me/SHAJON"><b>S. SHAJON</b></a>. Follow <a href="https://github.com/SHAJON-404"><b>GitHub Profile</b></a> for updates.
 </div>
